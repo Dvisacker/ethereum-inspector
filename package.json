@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "bin": {
-    "arkham-labels": "./dist/cli.js"
+    "arkham": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
