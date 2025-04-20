@@ -1,47 +1,16 @@
-interface Transfer {
-  fromAddress: Address;
-  toAddress: Address;
-}
+import { removeDuplicatesByKey } from "./helpers";
+import { LabelResult, Transfer, TransferResponse } from "./types";
 
-interface Address {
-  address: string;
-  arkhamEntity?: Entity;
-  arkhamLabel?: Label;
-}
-
-interface Entity {
-  id: string;
-  name: string;
-}
-
-interface Label {
-  name: string;
-}
-
-interface TransferResponse {
-  transfers: Transfer[];
-}
-
-// Function to remove duplicates by key from array of objects
-const removeDuplicatesByKey = <T extends Record<string, any>>(
-  arr: T[],
-  key: keyof T
-): T[] => {
-  return [...new Map(arr.map((item) => [item[key], item])).values()];
-};
-
-const abbreviateAddress = (address: string): string => {
-  return address.slice(0, 6) + "..." + address.slice(-4);
-};
-
-const cookie =
-  "_gcl_au=1.1.1135636805.1742395515; _ga=GA1.1.1035965964.1742395516; mp_db580d24fbe794a9a4765bcbfec0e06b_mixpanel=%7B%22distinct_id%22%3A%20%22%24device%3A195aedd8251269-0437400a809528-1b525636-384000-195aedd8251269%22%2C%22%24device_id%22%3A%20%22195aedd8251269-0437400a809528-1b525636-384000-195aedd8251269%22%2C%22%24initial_referrer%22%3A%20%22https%3A%2F%2Fintel.arkm.com%2F%22%2C%22%24initial_referring_domain%22%3A%20%22intel.arkm.com%22%2C%22__mps%22%3A%20%7B%7D%2C%22__mpso%22%3A%20%7B%22%24initial_referrer%22%3A%20%22https%3A%2F%2Fintel.arkm.com%2F%22%2C%22%24initial_referring_domain%22%3A%20%22intel.arkm.com%22%7D%2C%22__mpus%22%3A%20%7B%7D%2C%22__mpa%22%3A%20%7B%7D%2C%22__mpu%22%3A%20%7B%7D%2C%22__mpr%22%3A%20%5B%5D%2C%22__mpap%22%3A%20%5B%5D%7D; arkham_is_authed=true; arkham_platform_session=1f82739b-a7e8-4482-ae05-b0ef866cc525; mp_f32068aad7a42457f4470f3e023dd36f_mixpanel=%7B%22distinct_id%22%3A%20%22%24device%3A195aedd7c0b2f2-06e3c87154712b-1b525636-384000-195aedd7c0b2f2%22%2C%22%24device_id%22%3A%20%22195aedd7c0b2f2-06e3c87154712b-1b525636-384000-195aedd7c0b2f2%22%2C%22%24initial_referrer%22%3A%20%22%24direct%22%2C%22%24initial_referring_domain%22%3A%20%22%24direct%22%2C%22__mps%22%3A%20%7B%7D%2C%22__mpso%22%3A%20%7B%22%24initial_referrer%22%3A%20%22%24direct%22%2C%22%24initial_referring_domain%22%3A%20%22%24direct%22%7D%2C%22__mpus%22%3A%20%7B%7D%2C%22__mpa%22%3A%20%7B%7D%2C%22__mpu%22%3A%20%7B%7D%2C%22__mpr%22%3A%20%5B%5D%2C%22__mpap%22%3A%20%5B%5D%7D; _ga_P74N755GGG=GS1.1.1745077493.13.1.1745081478.0.0.0; _ga_K3BXC51SZE=GS1.1.1745077493.8.1.1745081478.0.0.0; _dd_s=rum=2&id=6ade81ea-a567-4221-a235-b86cb790d49f&created=1745081164442&expire=1745082585727";
-
-const fetchTransfers = async (
+export const fetchTransfers = async (
   entity: string,
   offset: number = 0,
   limit: number = 100
 ): Promise<TransferResponse> => {
+  const cookie = process.env.ARKHAM_COOKIE;
+  if (!cookie) {
+    throw new Error("ARKHAM_COOKIE is not set");
+  }
+
   const response = await fetch(
     `https://api.arkm.com/transfers?base=${entity}&flow=all&usdGte=1&sortKey=time&sortDir=desc&limit=${limit}&offset=${offset}`,
     {
@@ -73,13 +42,7 @@ const fetchTransfers = async (
   return data;
 };
 
-interface LabelResult {
-  address: string;
-  label?: Label;
-  entity: Entity;
-}
-
-const fetchLabels = async (entity: string): Promise<LabelResult[]> => {
+export const fetchLabels = async (entity: string): Promise<LabelResult[]> => {
   const allTransfers: Transfer[] = [];
 
   let offset = 0;
@@ -122,9 +85,9 @@ const fetchLabels = async (entity: string): Promise<LabelResult[]> => {
   return uniqueLabels;
 };
 
-type OutputType = "csv" | "json" | "line";
+export type OutputType = "csv" | "json" | "line";
 
-const formatOutput = (
+export const formatOutput = (
   outputType: OutputType,
   labels: LabelResult[]
 ): string => {
@@ -160,10 +123,3 @@ const formatOutput = (
       return JSON.stringify(labels);
   }
 };
-
-const main = async (): Promise<void> => {
-  const labels = await fetchLabels("wintermute");
-  console.log(formatOutput("line", labels));
-};
-
-main();
