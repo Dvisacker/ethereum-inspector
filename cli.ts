@@ -2,6 +2,13 @@
 import { Command } from "commander";
 import { fetchLabels, formatOutput, OutputType } from "./index";
 import { ArkhamClient } from "./arkham";
+import {
+  isSmartContract,
+  filterEOAAddresses,
+  findContractFunders,
+  findEOAFunder,
+} from "./evm";
+import { TransactionAnalyzer } from "./analysis";
 
 const program = new Command();
 
@@ -59,5 +66,148 @@ program
       process.exit(1);
     }
   });
+
+// EVM Analysis Commands
+program
+  .command("is-contract")
+  .description("Check if an address is a smart contract")
+  .argument("<address>", "The address to check")
+  .action(async (address: string) => {
+    try {
+      const isContract = await isSmartContract(address);
+      console.log(`${address} is ${isContract ? "a contract" : "an EOA"}`);
+    } catch (error) {
+      console.error("Error:", error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("filter-eoa")
+  .description("Filter a list of addresses to only EOA addresses")
+  .argument("<addresses...>", "Space-separated list of addresses to filter")
+  .action(async (addresses: string[]) => {
+    try {
+      const eoaAddresses = await filterEOAAddresses(addresses);
+      console.log("EOA addresses:");
+      eoaAddresses.forEach((addr) => console.log(addr));
+    } catch (error) {
+      console.error("Error:", error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("find-contract-funders")
+  .description("Find the addresses that funded a given contract")
+  .argument("<address>", "The contract address to analyze")
+  .action(async (address: string) => {
+    try {
+      const funders = await findContractFunders(address);
+      if (funders.length === 0) {
+        console.log("No funders found");
+        return;
+      }
+      console.log("Funders:");
+      funders.forEach((funder) => {
+        console.log(`From: ${funder.from}`);
+        console.log(`Value: ${funder.value.toString()} wei`);
+        console.log("---");
+      });
+    } catch (error) {
+      console.error("Error:", error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("find-eoa-funder")
+  .description("Find the first funder of an EOA address")
+  .argument("<address>", "The EOA address to analyze")
+  .action(async (address: string) => {
+    try {
+      const funder = await findEOAFunder(address);
+      if (!funder) {
+        console.log("No funder found");
+        return;
+      }
+      console.log(`From: ${funder.from}`);
+      console.log(`Value: ${funder.value.toString()} wei`);
+    } catch (error) {
+      console.error("Error:", error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("analyze-timing")
+  .description("Analyze transaction timing patterns for an address")
+  .argument("<address>", "The address to analyze")
+  .action(async (address: string) => {
+    try {
+      const analyzer = new TransactionAnalyzer();
+      console.log("Analyzing transaction timing for address:", address);
+      const analysis = await analyzer.analyzeTransactionTiming(address);
+      const formatted = analyzer.formatAnalysis(analysis);
+      console.log(formatted);
+    } catch (error) {
+      console.error("Error:", error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("related-wallets")
+  .description("Get all related EOA wallets that interacted with an address")
+  .argument("<address>", "The address to analyze")
+  .option("-f, --from-block <number>", "Starting block number")
+  .option("-t, --to-block <number>", "Ending block number")
+  .action(
+    async (
+      address: string,
+      options: { fromBlock?: number; toBlock?: number }
+    ) => {
+      try {
+        const analyzer = new TransactionAnalyzer();
+        console.log("Finding related wallets for address:", address);
+        const wallets = await analyzer.getRelatedWallets(
+          address,
+          options.fromBlock,
+          options.toBlock
+        );
+
+        if (wallets.length === 0) {
+          console.log("No related wallets found");
+          return;
+        }
+
+        console.log("\nRelated Wallets:");
+        wallets.forEach((wallet) => {
+          console.log(`\nAddress: ${wallet.address}`);
+          console.log(`Type: ${wallet.type}`);
+          console.log(`Value: ${wallet.value.toString()} wei`);
+          console.log(
+            `Timestamp: ${new Date(wallet.timestamp * 1000).toISOString()}`
+          );
+          console.log("---");
+        });
+      } catch (error) {
+        console.error("Error:", error);
+        process.exit(1);
+      }
+    }
+  );
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled promise rejection:", error);
+  process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception:", error);
+  process.exit(1);
+});
 
 program.parse();
