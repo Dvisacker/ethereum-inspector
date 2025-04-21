@@ -144,3 +144,47 @@ export async function findEOAFunder(
     throw error;
   }
 }
+
+/**
+ * Gets the name of a smart contract by reading its bytecode
+ * @param address The address of the contract
+ * @param provider Optional ethers provider (defaults to ethers' default provider)
+ * @returns Promise<string> The name of the contract, or "Unknown" if not found
+ */
+export async function getContractName(
+  address: string,
+  provider?: ethers.Provider
+): Promise<string> {
+  try {
+    const ethersProvider = provider || ethers.getDefaultProvider();
+
+    // Get the contract's bytecode
+    const bytecode = await ethersProvider.getCode(address);
+    if (bytecode === "0x") {
+      throw new Error("No bytecode found at address");
+    }
+
+    // The contract name is typically stored in the bytecode after the "6080604052" prefix
+    // and before the "600052" suffix. We'll look for this pattern.
+    const nameMatch = bytecode.match(/6080604052(.*?)600052/);
+    if (!nameMatch) {
+      return "Unknown";
+    }
+
+    // Convert the hex to ASCII
+    const hexName = nameMatch[1];
+    let name = "";
+    for (let i = 0; i < hexName.length; i += 2) {
+      const byte = parseInt(hexName.substr(i, 2), 16);
+      if (byte >= 32 && byte <= 126) {
+        // Only printable ASCII characters
+        name += String.fromCharCode(byte);
+      }
+    }
+
+    return name.trim() || "Unknown";
+  } catch (error) {
+    console.error(`Error getting contract name for ${address}:`, error);
+    return "Unknown";
+  }
+}

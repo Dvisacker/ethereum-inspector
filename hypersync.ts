@@ -108,7 +108,7 @@ export class HyperSync {
       ],
       transactions: [
         {
-          to: addresses,
+          from: addresses,
         },
       ],
       fieldSelection: this.getBaseFieldSelection(),
@@ -129,7 +129,7 @@ export class HyperSync {
       ],
       transactions: [
         {
-          from: addresses,
+          to: addresses,
         },
       ],
       fieldSelection: this.getBaseFieldSelection(),

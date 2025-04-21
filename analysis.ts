@@ -12,7 +12,7 @@ export interface TransactionTimingAnalysis {
   busiestMonth: { month: number; count: number };
 }
 
-export interface RelatedWallet {
+export interface RelatedWalletTx {
   address: string;
   type: "sender" | "receiver";
   value: bigint;
@@ -35,9 +35,10 @@ export class TransactionAnalyzer {
    */
   async getRelatedWallets(
     address: string,
+    threshold?: number,
     fromBlock?: number,
     toBlock?: number
-  ): Promise<RelatedWallet[]> {
+  ): Promise<string[]> {
     // Get all transfers involving the address
     const { transactions, logs, blocks } = await this.hyperSync.getOutflows([
       address,
@@ -51,36 +52,22 @@ export class TransactionAnalyzer {
       }
     });
 
-    // Process transactions and collect unique addresses
+    // Get related transactions and collect unique addresses
     const relatedAddresses = new Set<string>();
-    const relatedWallets: RelatedWallet[] = [];
+    const relatedTxs: RelatedWalletTx[] = [];
 
     // Process regular transactions
     for (const tx of transactions) {
-      // Skip if block number is undefined
       if (!tx.blockNumber) continue;
-
-      // Skip if outside the specified block range
       if (fromBlock && tx.blockNumber < fromBlock) continue;
       if (toBlock && tx.blockNumber > toBlock) continue;
 
       const timestamp = blockTimestamps.get(tx.blockNumber) || 0;
 
-      // Check sender
-      if (tx.from && tx.from !== address && !relatedAddresses.has(tx.from)) {
-        relatedAddresses.add(tx.from);
-        relatedWallets.push({
-          address: tx.from,
-          type: "sender",
-          value: BigInt(tx.value || "0"),
-          timestamp,
-        });
-      }
-
-      // Check receiver
-      if (tx.to && tx.to !== address && !relatedAddresses.has(tx.to)) {
+      // check addresses that have received ETH from the given address
+      if (tx.to && tx.to !== address) {
         relatedAddresses.add(tx.to);
-        relatedWallets.push({
+        relatedTxs.push({
           address: tx.to,
           type: "receiver",
           value: BigInt(tx.value || "0"),
@@ -89,7 +76,7 @@ export class TransactionAnalyzer {
       }
     }
 
-    // Process ERC20 transfers from logs
+    // Process ERC20 transfers
     for (const log of logs) {
       // Skip if block number is undefined or topics are missing
       if (!log.blockNumber || !log.topics || log.topics.length < 3) continue;
@@ -98,23 +85,12 @@ export class TransactionAnalyzer {
       const toTopic = log.topics[2];
       if (!fromTopic || !toTopic) continue;
 
-      const from = "0x" + fromTopic.slice(26);
       const to = "0x" + toTopic.slice(26);
-      const value = BigInt(log.data || "0");
+      const value = BigInt(0);
 
-      if (from !== address && !relatedAddresses.has(from)) {
-        relatedAddresses.add(from);
-        relatedWallets.push({
-          address: from,
-          type: "sender",
-          value,
-          timestamp: blockTimestamps.get(log.blockNumber) || 0,
-        });
-      }
-
-      if (to !== address && !relatedAddresses.has(to)) {
+      if (to !== address) {
         relatedAddresses.add(to);
-        relatedWallets.push({
+        relatedTxs.push({
           address: to,
           type: "receiver",
           value,
@@ -123,16 +99,26 @@ export class TransactionAnalyzer {
       }
     }
 
-    // Filter out smart contracts
-    const eoaWallets: RelatedWallet[] = [];
-    for (const wallet of relatedWallets) {
-      const isContract = await isSmartContract(wallet.address);
-      if (!isContract) {
-        eoaWallets.push(wallet);
-      }
+    const txByAddressCount = new Map<string, number>();
+    for (const tx of relatedTxs) {
+      const currentCount = txByAddressCount.get(tx.address) || 0;
+      txByAddressCount.set(tx.address, currentCount + 1);
     }
 
-    return eoaWallets;
+    console.log(txByAddressCount);
+
+    const eoaAddresses: string[] = [];
+    for (const address of relatedAddresses) {
+      const isContract = await isSmartContract(address);
+      if (!isContract) continue;
+
+      const txCount = txByAddressCount.get(address);
+      if (txCount && txCount < (threshold || 1)) continue;
+
+      eoaAddresses.push(address);
+    }
+
+    return eoaAddresses;
   }
 
   /**

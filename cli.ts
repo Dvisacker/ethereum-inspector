@@ -162,16 +162,19 @@ program
   .argument("<address>", "The address to analyze")
   .option("-f, --from-block <number>", "Starting block number")
   .option("-t, --to-block <number>", "Ending block number")
+  .option("-n, --threshold <number>", "Minimum number of transactions")
   .action(
     async (
       address: string,
-      options: { fromBlock?: number; toBlock?: number }
+      options: { fromBlock?: number; toBlock?: number; threshold?: number }
     ) => {
       try {
+        console.log(options);
         const analyzer = new TransactionAnalyzer();
         console.log("Finding related wallets for address:", address);
         const wallets = await analyzer.getRelatedWallets(
           address,
+          options.threshold,
           options.fromBlock,
           options.toBlock
         );
@@ -183,13 +186,7 @@ program
 
         console.log("\nRelated Wallets:");
         wallets.forEach((wallet) => {
-          console.log(`\nAddress: ${wallet.address}`);
-          console.log(`Type: ${wallet.type}`);
-          console.log(`Value: ${wallet.value.toString()} wei`);
-          console.log(
-            `Timestamp: ${new Date(wallet.timestamp * 1000).toISOString()}`
-          );
-          console.log("---");
+          console.log(`\n${wallet}`);
         });
       } catch (error) {
         console.error("Error:", error);
