@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@envio-dev/hypersync-client": "^0.6.3",
+    "axios": "^1.8.4",
     "commander": "^11.1.0",
     "ethers": "^6.13.5"
   }

@@ -21,6 +21,22 @@ export interface EntityResponse {
   populatedTags: EntityTag[];
 }
 
+export interface AddressResponse {
+  address: string;
+  chain: string;
+  arkhamEntity: {
+    name: string;
+    note: string;
+    id: string;
+    type: string;
+    service: string | null;
+    addresses: string[] | null;
+    website: string;
+  };
+  isUserAddress: boolean;
+  contract: boolean;
+}
+
 export class ArkhamClient {
   private readonly baseUrl = "https://api.arkm.com";
   private readonly cookie: string;
@@ -77,6 +93,23 @@ export class ArkhamClient {
   async fetchEntity(entityId: string): Promise<EntityResponse> {
     const response = await fetch(
       `${this.baseUrl}/intelligence/entity/${entityId}`,
+      {
+        headers: this.getHeaders(),
+        referrerPolicy: "strict-origin-when-cross-origin",
+        method: "GET",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch entity: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async fetchAddress(address: string): Promise<AddressResponse> {
+    const response = await fetch(
+      `${this.baseUrl}/intelligence/address/${address}`,
       {
         headers: this.getHeaders(),
         referrerPolicy: "strict-origin-when-cross-origin",

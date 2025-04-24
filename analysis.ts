@@ -53,9 +53,6 @@ export class TransactionAnalyzer {
       address,
     ]);
 
-    // console.log(transactions);
-    console.log(logs);
-
     // Create block number to timestamp mapping
     const blockTimestamps = new Map<number, number>();
     blocks.forEach((block) => {
@@ -285,7 +282,7 @@ export class TransactionAnalyzer {
       const confidence = totalActivity > 0 ? bestScore / totalActivity : 0;
 
       return {
-        region: bestRegion as "Europe" | "Asia",
+        region: bestRegion as "Europe" | "Asia" | "Americas",
         confidence,
         activeHours: regionScores[bestRegion].activeHours,
       };

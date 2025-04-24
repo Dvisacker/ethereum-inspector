@@ -7,6 +7,7 @@ import {
   filterEOAAddresses,
   findContractFunders,
   findEOAFunder,
+  getContractName,
 } from "./evm";
 import { TransactionAnalyzer } from "./analysis";
 
@@ -194,6 +195,21 @@ program
       }
     }
   );
+
+program
+  .command("contract-name")
+  .description("Get the name of a smart contract")
+  .argument("<address>", "The contract address to get the name for")
+  .argument("<chainid>", "The chain to get the name for")
+  .action(async (address: string, chainid: number) => {
+    try {
+      const name = await getContractName(address, chainid);
+      console.log(`Contract name: ${name}`);
+    } catch (error) {
+      console.error("Error:", error);
+      process.exit(1);
+    }
+  });
 
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (error) => {
