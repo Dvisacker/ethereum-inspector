@@ -5,11 +5,20 @@ export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
   dailyDistribution: { [day: number]: number };
   monthlyDistribution: { [month: number]: number };
+  yearlyDistribution: { [year: number]: number };
   totalTransactions: number;
   averageTransactionsPerDay: number;
   busiestHour: { hour: number; count: number };
   busiestDay: { day: number; count: number };
   busiestMonth: { month: number; count: number };
+  busiestYear: { year: number; count: number };
+  busiest6Hour: { startHour: number; count: number };
+  leastBusy6Hour: { startHour: number; count: number };
+  inferredTimezone?: {
+    region: "Europe" | "Asia" | "Americas";
+    confidence: number;
+    activeHours: number[];
+  };
 }
 
 export interface RelatedWalletTx {
@@ -44,6 +53,9 @@ export class TransactionAnalyzer {
       address,
     ]);
 
+    // console.log(transactions);
+    console.log(logs);
+
     // Create block number to timestamp mapping
     const blockTimestamps = new Map<number, number>();
     blocks.forEach((block) => {
@@ -65,7 +77,7 @@ export class TransactionAnalyzer {
       const timestamp = blockTimestamps.get(tx.blockNumber) || 0;
 
       // check addresses that have received ETH from the given address
-      if (tx.to && tx.to !== address) {
+      if (tx.to && tx.to !== address && tx.value !== BigInt(0)) {
         relatedAddresses.add(tx.to);
         relatedTxs.push({
           address: tx.to,
@@ -109,11 +121,11 @@ export class TransactionAnalyzer {
 
     const eoaAddresses: string[] = [];
     for (const address of relatedAddresses) {
-      const isContract = await isSmartContract(address);
-      if (!isContract) continue;
-
       const txCount = txByAddressCount.get(address);
       if (txCount && txCount < (threshold || 1)) continue;
+
+      const isContract = await isSmartContract(address);
+      if (isContract) continue;
 
       eoaAddresses.push(address);
     }
@@ -130,7 +142,7 @@ export class TransactionAnalyzer {
     address: string
   ): Promise<TransactionTimingAnalysis> {
     const { transactions, blocks } =
-      await this.hyperSync.getTransactionsToAddress(address);
+      await this.hyperSync.getTransactionsFromAddress(address);
 
     // Create block number to timestamp mapping
     const blockTimestamps = new Map<number, number>();
@@ -144,6 +156,7 @@ export class TransactionAnalyzer {
     const hourlyDistribution: { [hour: number]: number } = {};
     const dailyDistribution: { [day: number]: number } = {};
     const monthlyDistribution: { [month: number]: number } = {};
+    const yearlyDistribution: { [year: number]: number } = {};
 
     // Process each transaction
     transactions.forEach((tx) => {
@@ -164,6 +177,10 @@ export class TransactionAnalyzer {
           // Update monthly distribution (0 = January, 11 = December)
           const month = date.getUTCMonth();
           monthlyDistribution[month] = (monthlyDistribution[month] || 0) + 1;
+
+          // Update yearly distribution
+          const year = date.getUTCFullYear();
+          yearlyDistribution[year] = (yearlyDistribution[year] || 0) + 1;
         }
       }
     });
@@ -189,19 +206,113 @@ export class TransactionAnalyzer {
       return { period: busiestPeriod, count: maxCount };
     };
 
+    // Find busiest and least busy 6-hour timeframes
+    const find6HourTimeframes = (hourlyDist: { [hour: number]: number }) => {
+      let maxCount = 0;
+      let maxStartHour = 0;
+      let minCount = Infinity;
+      let minStartHour = 0;
+
+      // Check all possible 6-hour windows
+      for (let startHour = 0; startHour < 24; startHour++) {
+        let windowCount = 0;
+        for (let i = 0; i < 6; i++) {
+          const hour = (startHour + i) % 24;
+          windowCount += hourlyDist[hour] || 0;
+        }
+
+        if (windowCount > maxCount) {
+          maxCount = windowCount;
+          maxStartHour = startHour;
+        }
+        if (windowCount < minCount) {
+          minCount = windowCount;
+          minStartHour = startHour;
+        }
+      }
+
+      return {
+        busiest: { startHour: maxStartHour, count: maxCount },
+        leastBusy: { startHour: minStartHour, count: minCount },
+      };
+    };
+
+    // Infer timezone based on activity patterns
+    const inferTimezone = (hourlyDist: { [hour: number]: number }) => {
+      // Define typical active hours for each region (UTC)
+      // Europe (GMT+1): 7:00-23:00 UTC (8:00-24:00 local)
+      // Asia (GMT+8): 0:00-16:00 UTC (8:00-24:00 local)
+      const regionPatterns = {
+        Europe: { start: 7, end: 23 }, // 7:00-23:00 UTC
+        Asia: { start: 0, end: 16 }, // 0:00-16:00 UTC,
+        Americas: { start: 12, end: 20 }, // 12:00-20:00 UTC
+      };
+
+      // Calculate activity scores for each region
+      const regionScores: {
+        [key: string]: { score: number; activeHours: number[] };
+      } = {};
+
+      for (const [region, pattern] of Object.entries(regionPatterns)) {
+        let score = 0;
+        const activeHours: number[] = [];
+
+        for (let hour = pattern.start; hour < pattern.end; hour++) {
+          const activity = hourlyDist[hour] || 0;
+          score += activity;
+          if (activity > 0) activeHours.push(hour);
+        }
+
+        regionScores[region] = { score, activeHours };
+      }
+
+      // Find the region with the highest activity score
+      let bestRegion = "Europe";
+      let bestScore = regionScores.Europe.score;
+
+      for (const [region, { score }] of Object.entries(regionScores)) {
+        if (score > bestScore) {
+          bestScore = score;
+          bestRegion = region;
+        }
+      }
+
+      // Calculate confidence (ratio of activity score to total activity)
+      const totalActivity = Object.values(hourlyDist).reduce(
+        (sum, count) => sum + count,
+        0
+      );
+      const confidence = totalActivity > 0 ? bestScore / totalActivity : 0;
+
+      return {
+        region: bestRegion as "Europe" | "Asia",
+        confidence,
+        activeHours: regionScores[bestRegion].activeHours,
+      };
+    };
+
     const busiestHour = findBusiestPeriod(hourlyDistribution);
     const busiestDay = findBusiestPeriod(dailyDistribution);
     const busiestMonth = findBusiestPeriod(monthlyDistribution);
+    const busiestYear = findBusiestPeriod(yearlyDistribution);
+    const { busiest: busiest6Hour, leastBusy: leastBusy6Hour } =
+      find6HourTimeframes(hourlyDistribution);
+    const inferredTimezone = inferTimezone(hourlyDistribution);
 
     return {
       hourlyDistribution,
       dailyDistribution,
       monthlyDistribution,
+      yearlyDistribution,
       totalTransactions,
       averageTransactionsPerDay,
       busiestHour: { hour: busiestHour.period, count: busiestHour.count },
       busiestDay: { day: busiestDay.period, count: busiestDay.count },
       busiestMonth: { month: busiestMonth.period, count: busiestMonth.count },
+      busiestYear: { year: busiestYear.period, count: busiestYear.count },
+      busiest6Hour,
+      leastBusy6Hour,
+      inferredTimezone,
     };
   }
 
@@ -235,6 +346,25 @@ export class TransactionAnalyzer {
       "December",
     ];
 
+    const format6HourWindow = (startHour: number) => {
+      const endHour = (startHour + 6) % 24;
+      return `${startHour.toString().padStart(2, "0")}:00 - ${endHour
+        .toString()
+        .padStart(2, "0")}:00 UTC`;
+    };
+
+    let timezoneInfo = "";
+    if (analysis.inferredTimezone) {
+      const { region, confidence, activeHours } = analysis.inferredTimezone;
+      timezoneInfo = `
+Inferred Timezone:
+- Region: ${region} (${(confidence * 100).toFixed(1)}% confidence)
+- Active Hours: ${activeHours
+        .map((h) => `${h.toString().padStart(2, "0")}:00`)
+        .join(", ")} UTC
+`;
+    }
+
     return `
 Transaction Timing Analysis:
 ---------------------------
@@ -251,7 +381,16 @@ Busiest Periods:
 - Month: ${months[analysis.busiestMonth.month]} (${
       analysis.busiestMonth.count
     } transactions)
-
+- Year: ${analysis.busiestYear.year} (${
+      analysis.busiestYear.count
+    } transactions)
+- 6-Hour Window: ${format6HourWindow(analysis.busiest6Hour.startHour)} (${
+      analysis.busiest6Hour.count
+    } transactions)
+- Least Active 6-Hour Window: ${format6HourWindow(
+      analysis.leastBusy6Hour.startHour
+    )} (${analysis.leastBusy6Hour.count} transactions)
+${timezoneInfo}
 Hourly Distribution:
 ${Object.entries(analysis.hourlyDistribution)
   .sort(([a], [b]) => Number(a) - Number(b))
@@ -271,6 +410,12 @@ Monthly Distribution:
 ${Object.entries(analysis.monthlyDistribution)
   .sort(([a], [b]) => Number(a) - Number(b))
   .map(([month, count]) => `  ${months[Number(month)]} - ${count} transactions`)
+  .join("\n")}
+
+Yearly Distribution:
+${Object.entries(analysis.yearlyDistribution)
+  .sort(([a], [b]) => Number(a) - Number(b))
+  .map(([year, count]) => `  ${year} - ${count} transactions`)
   .join("\n")}
     `;
   }

@@ -35,7 +35,7 @@ export class HyperSync {
   }
 
   private async executeQuery(query: any) {
-    console.log("Running the query...");
+    console.log("Running hypersync query...");
     const { data } = await this.client.get(query);
     const { transactions, logs, blocks } = data;
     const decodedLogs = await this.decoder.decodeLogs(logs);
@@ -149,6 +149,20 @@ export class HyperSync {
       transactions: [
         {
           to: [address],
+        },
+      ],
+      fieldSelection: this.getBaseFieldSelection(),
+    };
+
+    return this.executeQuery(query);
+  }
+
+  async getTransactionsFromAddress(address: string) {
+    const query = {
+      fromBlock: 0,
+      transactions: [
+        {
+          from: [address],
         },
       ],
       fieldSelection: this.getBaseFieldSelection(),
