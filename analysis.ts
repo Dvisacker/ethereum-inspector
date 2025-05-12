@@ -1,6 +1,9 @@
 import { HyperSync } from "./hypersync";
 import { isSmartContract } from "./evm";
 import { Transaction } from "@envio-dev/hypersync-client";
+import { find6HourTimeframes, inferTimezoneRegion } from "./time";
+import { findBusiestPeriod } from "./time";
+import { ArkhamClient } from "./arkham";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -18,8 +21,15 @@ export interface TransactionTimingAnalysis {
   inferredTimezone?: {
     region: "Europe" | "Asia" | "Americas";
     confidence: number;
-    activeHours: number[];
+    // activeHours: number[];
   };
+}
+
+export interface RelatedWalletInfo {
+  address: string;
+  txCount: number;
+  entity: string;
+  label: string;
 }
 
 export interface RelatedWalletTx {
@@ -142,6 +152,50 @@ export class TransactionAnalyzer {
     return eoaAddresses;
   }
 
+  async analyzeRelatedWallets(address: string): Promise<
+    {
+      address: string;
+      txCount: number;
+      entity: string;
+      label: string;
+    }[]
+  > {
+    let wallets = await this.getRelatedWallets(address);
+
+    if (wallets.length === 0) {
+      console.log("No related wallets found");
+      return [];
+    }
+
+    wallets = wallets.sort((a, b) => b.txCount - a.txCount);
+
+    // filter out 0x0000000000000000000000000000000000000000
+    wallets = wallets.filter(
+      (wallet) =>
+        wallet.address !== "0x0000000000000000000000000000000000000000"
+    );
+
+    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
+    const walletInfos: {
+      address: string;
+      txCount: number;
+      entity: string;
+      label: string;
+    }[] = [];
+
+    for (const wallet of wallets) {
+      const response = await arkham.fetchAddress(wallet.address);
+      walletInfos.push({
+        address: wallet.address,
+        txCount: wallet.txCount,
+        entity: response.arkhamEntity?.name || "Unknown",
+        label: response.arkhamLabel?.name || "Unknown",
+      });
+    }
+
+    return walletInfos;
+  }
+
   /**
    * Analyzes the timing patterns of transactions made by an address
    * @param address The address to analyze
@@ -167,6 +221,8 @@ export class TransactionAnalyzer {
     const monthlyDistribution: { [month: number]: number } = {};
     const yearlyDistribution: { [year: number]: number } = {};
 
+    let utcDates: Date[] = [];
+
     // Process each transaction
     transactions.forEach((tx) => {
       if (tx.blockNumber) {
@@ -190,6 +246,8 @@ export class TransactionAnalyzer {
           // Update yearly distribution
           const year = date.getUTCFullYear();
           yearlyDistribution[year] = (yearlyDistribution[year] || 0) + 1;
+
+          utcDates.push(date);
         }
       }
     });
@@ -200,113 +258,13 @@ export class TransactionAnalyzer {
     const averageTransactionsPerDay =
       totalTransactions / (daysWithTransactions || 1);
 
-    // Find busiest periods
-    const findBusiestPeriod = (distribution: { [key: number]: number }) => {
-      let maxCount = 0;
-      let busiestPeriod = 0;
-
-      Object.entries(distribution).forEach(([period, count]) => {
-        if (count > maxCount) {
-          maxCount = count;
-          busiestPeriod = Number(period);
-        }
-      });
-
-      return { period: busiestPeriod, count: maxCount };
-    };
-
-    // Find busiest and least busy 6-hour timeframes
-    const find6HourTimeframes = (hourlyDist: { [hour: number]: number }) => {
-      let maxCount = 0;
-      let maxStartHour = 0;
-      let minCount = Infinity;
-      let minStartHour = 0;
-
-      // Check all possible 6-hour windows
-      for (let startHour = 0; startHour < 24; startHour++) {
-        let windowCount = 0;
-        for (let i = 0; i < 6; i++) {
-          const hour = (startHour + i) % 24;
-          windowCount += hourlyDist[hour] || 0;
-        }
-
-        if (windowCount > maxCount) {
-          maxCount = windowCount;
-          maxStartHour = startHour;
-        }
-        if (windowCount < minCount) {
-          minCount = windowCount;
-          minStartHour = startHour;
-        }
-      }
-
-      return {
-        busiest: { startHour: maxStartHour, count: maxCount },
-        leastBusy: { startHour: minStartHour, count: minCount },
-      };
-    };
-
-    // Infer timezone based on activity patterns
-    const inferTimezone = (hourlyDist: { [hour: number]: number }) => {
-      // Define typical active hours for each region (UTC)
-      // Europe (GMT+1): 7:00-23:00 UTC (8:00-24:00 local)
-      // Asia (GMT+8): 0:00-16:00 UTC (8:00-24:00 local)
-      const regionPatterns = {
-        Europe: { start: 7, end: 23 }, // 7:00-23:00 UTC
-        Asia: { start: 0, end: 16 }, // 0:00-16:00 UTC,
-        Americas: { start: 12, end: 20 }, // 12:00-20:00 UTC
-      };
-
-      // Calculate activity scores for each region
-      const regionScores: {
-        [key: string]: { score: number; activeHours: number[] };
-      } = {};
-
-      for (const [region, pattern] of Object.entries(regionPatterns)) {
-        let score = 0;
-        const activeHours: number[] = [];
-
-        for (let hour = pattern.start; hour < pattern.end; hour++) {
-          const activity = hourlyDist[hour] || 0;
-          score += activity;
-          if (activity > 0) activeHours.push(hour);
-        }
-
-        regionScores[region] = { score, activeHours };
-      }
-
-      // Find the region with the highest activity score
-      let bestRegion = "Europe";
-      let bestScore = regionScores.Europe.score;
-
-      for (const [region, { score }] of Object.entries(regionScores)) {
-        if (score > bestScore) {
-          bestScore = score;
-          bestRegion = region;
-        }
-      }
-
-      // Calculate confidence (ratio of activity score to total activity)
-      const totalActivity = Object.values(hourlyDist).reduce(
-        (sum, count) => sum + count,
-        0
-      );
-      const confidence = totalActivity > 0 ? bestScore / totalActivity : 0;
-
-      return {
-        region: bestRegion as "Europe" | "Asia" | "Americas",
-        confidence,
-        activeHours: regionScores[bestRegion].activeHours,
-      };
-    };
-
     const busiestHour = findBusiestPeriod(hourlyDistribution);
     const busiestDay = findBusiestPeriod(dailyDistribution);
     const busiestMonth = findBusiestPeriod(monthlyDistribution);
     const busiestYear = findBusiestPeriod(yearlyDistribution);
     const { busiest: busiest6Hour, leastBusy: leastBusy6Hour } =
       find6HourTimeframes(hourlyDistribution);
-    const inferredTimezone = inferTimezone(hourlyDistribution);
+    const inferredTimezoneRegion = inferTimezoneRegion(utcDates);
 
     return {
       hourlyDistribution,
@@ -321,7 +279,7 @@ export class TransactionAnalyzer {
       busiestYear: { year: busiestYear.period, count: busiestYear.count },
       busiest6Hour,
       leastBusy6Hour,
-      inferredTimezone,
+      inferredTimezone: inferredTimezoneRegion,
     };
   }
 
@@ -364,13 +322,10 @@ export class TransactionAnalyzer {
 
     let timezoneInfo = "";
     if (analysis.inferredTimezone) {
-      const { region, confidence, activeHours } = analysis.inferredTimezone;
+      const { region, confidence } = analysis.inferredTimezone;
       timezoneInfo = `
 Inferred Timezone:
 - Region: ${region} (${(confidence * 100).toFixed(1)}% confidence)
-- Active Hours: ${activeHours
-        .map((h) => `${h.toString().padStart(2, "0")}:00`)
-        .join(", ")} UTC
 `;
     }
 
