@@ -58,7 +58,6 @@ export const fetchLabels = async (entity: string): Promise<LabelResult[]> => {
   const max = 200;
   while (offset < max) {
     const data = await fetchTransfers(entity, offset, limit);
-    console.log("Got", data.transfers.length, "transfers");
     allTransfers.push(...data.transfers);
     if (data.transfers.length < limit) {
       break;
@@ -67,7 +66,6 @@ export const fetchLabels = async (entity: string): Promise<LabelResult[]> => {
   }
 
   const fromAddresses = allTransfers.map((transfer) => transfer.fromAddress);
-  console.log(fromAddresses);
   const fromAddressLabels = fromAddresses
     .filter((data) => data?.arkhamEntity?.id === entity)
     .map((data) => ({
@@ -78,7 +76,6 @@ export const fetchLabels = async (entity: string): Promise<LabelResult[]> => {
     .filter(Boolean) as LabelResult[];
 
   const toAddresses = allTransfers.map((transfer) => transfer.toAddress);
-  console.log(toAddresses);
   const toAddressLabels = toAddresses
     .filter((data) => data?.arkhamEntity?.id === entity)
     .map((data) => ({
@@ -93,27 +90,24 @@ export const fetchLabels = async (entity: string): Promise<LabelResult[]> => {
   return uniqueLabels;
 };
 
-export type OutputType = "csv" | "json" | "line";
+export type OutputType = "csv" | "json" | "line" | "table";
 
-export const formatOutput = (
-  outputType: OutputType,
-  labels: LabelResult[]
-): string => {
+export const printOutput = (outputType: OutputType, labels: LabelResult[]) => {
   switch (outputType) {
     case "csv":
-      return labels
+      const output = labels
         .map(
           (label) =>
             `${label.address},${label.entity.name},${label.label?.name ?? ""}`
         )
         .join("\n");
+      console.log(output);
     case "json":
-      return JSON.stringify(labels, null, 2);
+      console.log(JSON.stringify(labels, null, 2));
     case "line": {
-      const output: string[] = [];
+      let lines: string[] = [];
       const nameIterator: Record<string, number> = {};
       for (const label of labels) {
-        console.log(label);
         if (!nameIterator[label.entity.name]) {
           nameIterator[label.entity.name] = 0;
         }
@@ -123,11 +117,14 @@ export const formatOutput = (
             ? ` (${label.label?.name ?? ""}${nameIterator[label.entity.name]})`
             : ""
         }`;
-        output.push(`${label.address} ${name}`);
+        lines.push(`${label.address} ${name}`);
       }
-      return output.join("\n");
+      const output = lines.join("\n");
+      console.log(output);
     }
+    case "table":
+      console.table(labels);
     default:
-      return JSON.stringify(labels);
+      console.log(JSON.stringify(labels));
   }
 };

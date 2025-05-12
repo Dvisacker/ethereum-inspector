@@ -32,6 +32,9 @@
     "@envio-dev/hypersync-client": "^0.6.3",
     "axios": "^1.8.4",
     "commander": "^11.1.0",
-    "ethers": "^6.13.5"
+    "dotenv": "^16.5.0",
+    "ethers": "^6.13.5",
+    "open": "^9.1.0",
+    "winston": "^3.11.0"
   }
 }

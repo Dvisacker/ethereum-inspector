@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { fetchLabels, formatOutput, OutputType } from "./index";
+import { fetchLabels, printOutput, OutputType } from "./index";
 import { ArkhamClient } from "./arkham";
 import {
   isSmartContract,
@@ -26,7 +26,7 @@ program
   .action(async (entity: string, options: { output: OutputType }) => {
     try {
       const labels = await fetchLabels(entity);
-      console.log(formatOutput(options.output, labels));
+      console.log(printOutput(options.output, labels));
     } catch (error) {
       console.error("Error:", error);
       process.exit(1);
