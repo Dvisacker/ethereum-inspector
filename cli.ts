@@ -8,10 +8,15 @@ import {
   findEOAFunder,
   getContractName,
 } from "./evm";
-import { TransactionAnalyzer } from "./analysis";
+import {
+  RelatedWalletInfo,
+  TransactionAnalyzer,
+  TransactionTimingAnalysis,
+} from "./analysis";
 import { printOutput } from "./utils";
 import { OutputType } from "./utils";
 import { ArkhamClient } from "./arkham";
+import inquirer from "inquirer";
 
 const program = new Command();
 
@@ -70,9 +75,68 @@ program
       label: address.arkhamLabel?.name,
     }));
     const ens = results.ens;
-    console.table(entities, ["id", "name", "type"]);
-    console.table(addresses, ["address", "chain", "entity", "label"]);
-    console.table(ens, ["name", "address"]);
+
+    const answers = await inquirer.prompt({
+      type: "list",
+      name: "entity",
+      message: "Select an entity",
+      choices: addresses.map((address) => ({
+        name: `${address.entity} (${address.address})`,
+        value: address.address,
+      })),
+    });
+
+    const entity = addresses.find(
+      (address) => address.address === answers.entity
+    );
+
+    if (!entity) {
+      console.error("Entity not found");
+      process.exit(1);
+    }
+
+    const answers2 = await inquirer.prompt({
+      type: "list",
+      name: "action",
+      message: "What do you want to do",
+      choices: [
+        { name: "Complete Analysis", value: "complete" },
+        { name: "Timing Analysis", value: "timing" },
+        { name: "Related Wallets", value: "related" },
+        { name: "Exit", value: "exit" },
+      ],
+    });
+
+    const analyzer = new TransactionAnalyzer();
+
+    let timingAnalysis: TransactionTimingAnalysis;
+    let relatedWallets: RelatedWalletInfo[];
+    switch (answers2.action) {
+      case "timing":
+        timingAnalysis = await analyzer.analyzeTransactionTiming(
+          entity.address
+        );
+        console.log(analyzer.formatAnalysis(timingAnalysis));
+        break;
+      case "related":
+        relatedWallets = await analyzer.analyzeRelatedWallets(entity.address);
+        console.table(relatedWallets);
+        break;
+      case "complete":
+        console.log("Timing Analysis ...");
+        timingAnalysis = await analyzer.analyzeTransactionTiming(
+          entity.address
+        );
+        console.log(analyzer.formatAnalysis(timingAnalysis));
+
+        console.log("Related Wallets ...");
+        relatedWallets = await analyzer.analyzeRelatedWallets(entity.address);
+        console.table(relatedWallets);
+        break;
+    }
+    // console.table(entities, ["id", "name", "type"]);
+    // console.table(addresses, ["address", "chain", "entity", "label"]);
+    // console.table(ens, ["name", "address"]);
   });
 
 // program
@@ -183,7 +247,7 @@ program
   });
 
 program
-  .command("analyze-timing")
+  .command("timing")
   .description("Analyze transaction timing patterns for an address")
   .argument("<address>", "The address to analyze")
   .action(async (address: string) => {
