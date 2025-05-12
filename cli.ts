@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { fetchLabels, printOutput, OutputType } from "./index";
-import { ArkhamClient } from "./arkham";
+import { fetchLabels } from "./index";
 import {
   isSmartContract,
   filterEOAAddresses,
@@ -10,6 +9,9 @@ import {
   getContractName,
 } from "./evm";
 import { TransactionAnalyzer } from "./analysis";
+import { printOutput } from "./utils";
+import { OutputType } from "./utils";
+import { ArkhamClient } from "./arkham";
 
 const program = new Command();
 
@@ -19,7 +21,7 @@ program
   .version("1.0.0");
 
 program
-  .command("addresses")
+  .command("entity")
   .description("Fetch labels for an entity")
   .argument("<entity>", "The entity ID to fetch labels for")
   .option("-o, --output <type>", "Output format (csv, json, line)", "line")
@@ -34,39 +36,79 @@ program
   });
 
 program
-  .command("info")
-  .description("Fetch entity information")
-  .argument("<entity>", "The entity ID to fetch information for")
-  .option("-o, --output <type>", "Output format (json, pretty)", "pretty")
-  .action(async (entity: string, options: { output: "json" | "pretty" }) => {
-    try {
-      const cookie = process.env.ARKHAM_COOKIE;
-      if (!cookie) {
-        throw new Error("ARKHAM_COOKIE environment variable is required");
-      }
+  .command("address")
+  .description("Fetch address information")
+  .argument("<address>", "The address to fetch information for")
+  .action(async (address: string) => {
+    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
+    const addressInfo = await arkham.fetchAddress(address);
 
-      const client = new ArkhamClient(cookie);
-      const entityInfo = await client.fetchEntity(entity);
+    const info = {
+      address: addressInfo.address,
+      chain: addressInfo.chain,
+      entity: addressInfo.arkhamEntity?.name || "Unknown",
+      label: addressInfo.arkhamLabel?.name || "Unknown",
+      isUserAddress: addressInfo.isUserAddress,
+      contract: addressInfo.contract,
+    };
 
-      if (options.output === "json") {
-        console.log(JSON.stringify(entityInfo));
-      } else {
-        console.log("Name:", entityInfo.name);
-        console.log("ID:", entityInfo.id);
-        console.log("Type:", entityInfo.type);
-        if (entityInfo.twitter) console.log("Twitter:", entityInfo.twitter);
-        console.log("\nTags:");
-        entityInfo.populatedTags.forEach((tag) => {
-          console.log(
-            `- ${tag.label}${tag.tagParams ? ` (${tag.tagParams})` : ""}`
-          );
-        });
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      process.exit(1);
-    }
+    console.table(info);
   });
+
+program
+  .command("search-entity")
+  .description("Fetch transfers for an entity")
+  .argument("<search>", "The search query to fetch entities for")
+  .action(async (search: string) => {
+    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
+    const results = await arkham.searchEntities(search);
+    const entities = results.arkhamEntities;
+    const addresses = results.arkhamAddresses.map((address) => ({
+      address: address.address,
+      chain: address.chain,
+      entity: address.arkhamEntity?.name,
+      label: address.arkhamLabel?.name,
+    }));
+    const ens = results.ens;
+    console.table(entities, ["id", "name", "type"]);
+    console.table(addresses, ["address", "chain", "entity", "label"]);
+    console.table(ens, ["name", "address"]);
+  });
+
+// program
+//   .command("info")
+//   .description("Fetch entity information")
+//   .argument("<entity>", "The entity ID to fetch information for")
+//   .option("-o, --output <type>", "Output format (json, pretty)", "pretty")
+//   .action(async (entity: string, options: { output: "json" | "pretty" }) => {
+//     try {
+//       const cookie = process.env.ARKHAM_COOKIE;
+//       if (!cookie) {
+//         throw new Error("ARKHAM_COOKIE environment variable is required");
+//       }
+
+//       const client = new ArkhamClient(cookie);
+//       const entityInfo = await client.fetchEntity(entity);
+
+//       if (options.output === "json") {
+//         console.log(JSON.stringify(entityInfo));
+//       } else {
+//         console.log("Name:", entityInfo.name);
+//         console.log("ID:", entityInfo.id);
+//         console.log("Type:", entityInfo.type);
+//         if (entityInfo.twitter) console.log("Twitter:", entityInfo.twitter);
+//         console.log("\nTags:");
+//         entityInfo.populatedTags.forEach((tag) => {
+//           console.log(
+//             `- ${tag.label}${tag.tagParams ? ` (${tag.tagParams})` : ""}`
+//           );
+//         });
+//       }
+//     } catch (error) {
+//       console.error("Error:", error);
+//       process.exit(1);
+//     }
+//   });
 
 // EVM Analysis Commands
 program
@@ -158,7 +200,7 @@ program
   });
 
 program
-  .command("related-wallets")
+  .command("related")
   .description("Get all related EOA wallets that interacted with an address")
   .argument("<address>", "The address to analyze")
   .option("-f, --from-block <number>", "Starting block number")
@@ -170,12 +212,13 @@ program
       options: { fromBlock?: number; toBlock?: number; threshold?: number }
     ) => {
       try {
-        console.log(options);
         const analyzer = new TransactionAnalyzer();
+        const threshold = options.threshold || 5;
         console.log("Finding related wallets for address:", address);
-        const wallets = await analyzer.getRelatedWallets(
+        console.log("Threshold:", options.threshold);
+        let wallets = await analyzer.getRelatedWallets(
           address,
-          options.threshold,
+          threshold,
           options.fromBlock,
           options.toBlock
         );
@@ -185,10 +228,33 @@ program
           return;
         }
 
-        console.log("\nRelated Wallets:");
-        wallets.forEach((wallet) => {
-          console.log(`\n${wallet}`);
-        });
+        wallets = wallets.sort((a, b) => b.txCount - a.txCount);
+
+        // filter out 0x0000000000000000000000000000000000000000
+        wallets = wallets.filter(
+          (wallet) =>
+            wallet.address !== "0x0000000000000000000000000000000000000000"
+        );
+
+        const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
+        const walletInfos: {
+          address: string;
+          txCount: number;
+          entity: string;
+          label: string;
+        }[] = [];
+
+        for (const wallet of wallets) {
+          const response = await arkham.fetchAddress(wallet.address);
+          walletInfos.push({
+            address: wallet.address,
+            txCount: wallet.txCount,
+            entity: response.arkhamEntity?.name || "Unknown",
+            label: response.arkhamLabel?.name || "Unknown",
+          });
+        }
+
+        console.table(walletInfos);
       } catch (error) {
         console.error("Error:", error);
         process.exit(1);

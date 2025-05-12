@@ -1,5 +1,6 @@
 import { HyperSync } from "./hypersync";
 import { isSmartContract } from "./evm";
+import { Transaction } from "@envio-dev/hypersync-client";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -47,7 +48,7 @@ export class TransactionAnalyzer {
     threshold?: number,
     fromBlock?: number,
     toBlock?: number
-  ): Promise<string[]> {
+  ): Promise<{ address: string; txCount: number }[]> {
     // Get all transfers involving the address
     const { transactions, logs, blocks } = await this.hyperSync.getOutflows([
       address,
@@ -85,10 +86,23 @@ export class TransactionAnalyzer {
       }
     }
 
+    const txnsByHashes = new Map<string, Transaction>();
+    for (const tx of transactions) {
+      if (tx.hash) {
+        txnsByHashes.set(tx.hash, tx);
+      }
+    }
+
     // Process ERC20 transfers
     for (const log of logs) {
       // Skip if block number is undefined or topics are missing
       if (!log.blockNumber || !log.topics || log.topics.length < 3) continue;
+
+      // We weed out any logs that are from transactions that don't originate from the given address
+      // This is helpful to remove scam transactions
+      const tx = txnsByHashes.get(log.transactionHash || "");
+      if (!tx) continue;
+      if (tx.from?.toLowerCase() !== address.toLowerCase()) continue;
 
       const fromTopic = log.topics[1];
       const toTopic = log.topics[2];
@@ -114,17 +128,15 @@ export class TransactionAnalyzer {
       txByAddressCount.set(tx.address, currentCount + 1);
     }
 
-    console.log(txByAddressCount);
-
-    const eoaAddresses: string[] = [];
+    const eoaAddresses: { address: string; txCount: number }[] = [];
     for (const address of relatedAddresses) {
-      const txCount = txByAddressCount.get(address);
-      if (txCount && txCount < (threshold || 1)) continue;
+      const txCount = txByAddressCount.get(address) || 0;
+      if (txCount < (threshold || 1)) continue;
 
       const isContract = await isSmartContract(address);
       if (isContract) continue;
 
-      eoaAddresses.push(address);
+      eoaAddresses.push({ address, txCount });
     }
 
     return eoaAddresses;
