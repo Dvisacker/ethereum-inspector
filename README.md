@@ -1,94 +1,161 @@
 # Arkham CLI
 
-A command-line interface for interacting with the Arkham Intelligence API.
+A command-line interface for analyzing Ethereum addresses and transactions.
 
 ## Installation
 
 ```bash
-npm install -g arkham-cli
+npm install -g @arkham/cli
 ```
 
-## Setup
+## Configuration
 
-You need to set your Arkham cookie as an environment variable:
+Create a `.env` file in your home directory with the following variables:
 
-```bash
-export ARKHAM_COOKIE="your_cookie_here"
+```env
+RPC_URL=your_rpc_url
+ETHERSCAN_API_KEY=your_etherscan_api_key
 ```
 
 ## Usage
 
-### Fetch Entity Information
-
-Get detailed information about an entity:
+### Get Entity Information
 
 ```bash
-arkham info <entity-id>
+arkham info <address>
 ```
 
-Example:
-```bash
-arkham info dcfgod
-```
-
-Options:
-- `-o, --output <type>`: Output format (default: "pretty")
-  - `pretty`: Human-readable format
-  - `json`: Raw JSON response
-
-### Fetch Entity Addresses
-
-Get all addresses associated with an entity:
+### Check if Address is a Smart Contract
 
 ```bash
-arkham addresses <entity-id>
+arkham is-contract <address>
 ```
 
-Example:
+### Get Contract Name
+
 ```bash
-arkham addresses dcfgod
+arkham contract-name <address>
 ```
 
-Options:
-- `-o, --output <type>`: Output format (default: "line")
-  - `line`: One address per line with label
-  - `csv`: Comma-separated values
-  - `json`: Raw JSON response
+### Get Related Wallets
+
+```bash
+arkham related-wallets <address> [--from-block <number>] [--to-block <number>]
+```
+
+### Analyze Transaction Timing
+
+```bash
+arkham analyze-timing <address> [--from-block <number>] [--to-block <number>]
+```
+
+## API Reference
+
+### EtherscanClient
+
+The `EtherscanClient` class provides methods to interact with the Etherscan API V2.
+
+```typescript
+import { EtherscanClient } from '@arkham/cli';
+
+const etherscan = new EtherscanClient('YOUR_API_KEY');
+```
+
+#### Methods
+
+##### getContractABI(address: string, chainid: number)
+Get the ABI for a verified contract.
+
+##### getContractSourceCode(address: string, chainid: number)
+Get the source code for a verified contract.
+
+##### getContractName(address: string, chainid: number)
+Get the name of a verified contract.
+
+##### getContractCreator(address: string, chainid: number)
+Get the creator address and creation transaction hash for a contract.
+
+##### getContractVerificationStatus(address: string, chainid: number)
+Check if a contract is verified and get verification details.
+
+##### getContractBytecode(address: string, chainid: number)
+Get the bytecode of a contract.
+
+##### getContractStorage(address: string, position: string, chainid: number)
+Get the storage value at a specific position in a contract.
+
+##### verifyProxyContract(address: string, chainid: number, expectedImplementation?: string)
+Verify a proxy contract.
+
+##### checkProxyVerification(guid: string, chainid: number)
+Check the status of a proxy contract verification.
+
+### Chain IDs
+
+The following chain IDs are supported:
+
+- 1: Ethereum Mainnet
+- 5: Goerli Testnet
+- 11155111: Sepolia Testnet
+- 17000: Holesky Testnet
 
 ## Examples
 
-### Pretty Entity Information
-```bash
-$ arkham info dcfgod
-Name: DCF GOD
-ID: dcfgod
-Type: individual
-Twitter: https://twitter.com/dcfgod
+### Get Contract Information
 
-Tags:
-- Individual
-- OpenSea User (OpenSea User)
-- Contract Deployer
-- MultiSig Deployer
-- sudoswap Pool Deployer (sudoswap Pool)
-...
+```typescript
+const etherscan = new EtherscanClient('YOUR_API_KEY');
+
+// Get contract name
+const name = await etherscan.getContractName('0x...', 1);
+
+// Get contract creator
+const creator = await etherscan.getContractCreator('0x...', 1);
+console.log(`Created by: ${creator.creator}`);
+console.log(`Creation tx: ${creator.txHash}`);
+
+// Check verification status
+const status = await etherscan.getContractVerificationStatus('0x...', 1);
+console.log(`Verified: ${status.verified}`);
+console.log(`Compiler: ${status.compilerVersion}`);
 ```
 
-### Addresses in Line Format
-```bash
-$ arkham addresses dcfgod
-0x123...abc DCF GOD
-0x456...def DCF GOD (Wallet 2)
+### Analyze Contract Storage
+
+```typescript
+const etherscan = new EtherscanClient('YOUR_API_KEY');
+
+// Get contract bytecode
+const bytecode = await etherscan.getContractBytecode('0x...', 1);
+
+// Read storage slot
+const storage = await etherscan.getContractStorage('0x...', '0x0', 1);
 ```
 
-### JSON Output
+## Development
+
+### Prerequisites
+
+- Node.js 18+
+- npm 9+
+
+### Setup
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file with your configuration
+4. Build the project:
+   ```bash
+   npm run build
+   ```
+
+### Testing
+
 ```bash
-$ arkham info dcfgod -o json
-{
-  "name": "DCF GOD",
-  "id": "dcfgod",
-  ...
-}
+npm test
 ```
 
 ## License
