@@ -4,6 +4,7 @@ import {
   filterEOAAddresses,
   findContractFunders,
   findEOAFunder,
+  getContractName,
 } from "./evm";
 import { HyperSync } from "./hypersync";
 
@@ -100,6 +101,13 @@ describe("EVM Utils", () => {
 
     it("should throw error for contract addresses", async () => {
       await expect(findEOAFunder(UNISWAP_V2_ROUTER)).rejects.toThrow();
+    }, 100000);
+  });
+
+  describe("getContractName", () => {
+    it("should get the contract name", async () => {
+      const name = await getContractName(UNISWAP_V2_ROUTER, 1);
+      expect(name).toBe("UniswapV2Router02");
     }, 100000);
   });
 });

@@ -1,6 +1,14 @@
-import { ethers } from "ethers";
+import { AlchemyProvider, ethers } from "ethers";
 import { HyperSync } from "./hypersync";
 import { EtherscanClient } from "./etherscan";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+export const defaultProvider = ethers.getDefaultProvider("mainnet", {
+  etherscan: process.env.ETHERSCAN_API_KEY,
+  alchemy: process.env.ALCHEMY_API_KEY,
+});
 
 /**
  * Checks if an Ethereum address is a smart contract
@@ -13,7 +21,7 @@ export async function isSmartContract(
   provider?: ethers.Provider
 ): Promise<boolean> {
   try {
-    const ethersProvider = provider || ethers.getDefaultProvider();
+    const ethersProvider = provider || defaultProvider;
     const code = await ethersProvider.getCode(address);
     return code !== "0x";
   } catch (error) {
@@ -61,7 +69,7 @@ export async function findContractFunders(
   provider?: ethers.Provider
 ): Promise<{ from: string; value: bigint }[]> {
   try {
-    const ethersProvider = provider || ethers.getDefaultProvider();
+    const ethersProvider = provider || defaultProvider;
 
     // Get the contract's creation transaction
     const tx = await ethersProvider.getTransaction(contractAddress);
@@ -110,7 +118,7 @@ export async function findEOAFunder(
   provider?: ethers.Provider
 ): Promise<{ from: string; value: bigint } | null> {
   try {
-    const ethersProvider = provider || ethers.getDefaultProvider();
+    const ethersProvider = provider || defaultProvider;
 
     const isContract = await isSmartContract(eoaAddress, ethersProvider);
     if (isContract) {
@@ -163,6 +171,12 @@ export async function getContractName(
       try {
         return await etherscan.getContractName(address, chainid);
       } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.includes("Contract name not found")
+        ) {
+          return "Unverified contract";
+        }
         console.warn("Failed to get contract name from Etherscan:", error);
       }
     }

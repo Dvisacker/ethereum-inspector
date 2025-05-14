@@ -1,5 +1,5 @@
 import { HyperSync } from "./hypersync";
-import { isSmartContract } from "./evm";
+import { getContractName, isSmartContract } from "./evm";
 import { Transaction } from "@envio-dev/hypersync-client";
 import { find6HourTimeframes, inferTimezoneRegion } from "./time";
 import { findBusiestPeriod } from "./time";
@@ -58,7 +58,10 @@ export class TransactionAnalyzer {
     threshold?: number,
     fromBlock?: number,
     toBlock?: number
-  ): Promise<{ address: string; txCount: number }[]> {
+  ): Promise<{
+    eoas: { address: string; txCount: number }[];
+    contracts: { address: string; txCount: number }[];
+  }> {
     // Get all transfers involving the address
     const { transactions, logs, blocks } = await this.hyperSync.getOutflows([
       address,
@@ -138,33 +141,43 @@ export class TransactionAnalyzer {
       txByAddressCount.set(tx.address, currentCount + 1);
     }
 
-    const eoaAddresses: { address: string; txCount: number }[] = [];
+    const eoas: { address: string; txCount: number }[] = [];
+    const contracts: { address: string; txCount: number }[] = [];
     for (const address of relatedAddresses) {
       const txCount = txByAddressCount.get(address) || 0;
       if (txCount < (threshold || 1)) continue;
 
       const isContract = await isSmartContract(address);
-      if (isContract) continue;
-
-      eoaAddresses.push({ address, txCount });
+      if (isContract) {
+        contracts.push({ address, txCount });
+      } else {
+        eoas.push({ address, txCount });
+      }
     }
 
-    return eoaAddresses;
+    return { eoas, contracts };
   }
 
-  async analyzeRelatedWallets(address: string): Promise<
-    {
+  async analyzeRelatedWallets(address: string): Promise<{
+    wallets: {
       address: string;
       txCount: number;
       entity: string;
       label: string;
-    }[]
-  > {
-    let wallets = await this.getRelatedWallets(address);
+    }[];
+    contracts: {
+      address: string;
+      txCount: number;
+      entity: string;
+      label: string;
+      name: string;
+    }[];
+  }> {
+    let { eoas: wallets, contracts } = await this.getRelatedWallets(address);
 
-    if (wallets.length === 0) {
+    if (wallets.length === 0 && contracts.length === 0) {
       console.log("No related wallets found");
-      return [];
+      return { wallets: [], contracts: [] };
     }
 
     wallets = wallets.sort((a, b) => b.txCount - a.txCount);
@@ -193,7 +206,32 @@ export class TransactionAnalyzer {
       });
     }
 
-    return walletInfos;
+    // take top 5 contracts
+    contracts = contracts.sort((a, b) => b.txCount - a.txCount).slice(0, 5);
+    const contractInfos: {
+      address: string;
+      txCount: number;
+      entity: string;
+      label: string;
+      name: string;
+    }[] = [];
+
+    for (const contract of contracts) {
+      const response = await arkham.fetchAddress(contract.address);
+      const name = await getContractName(contract.address, 1);
+      contractInfos.push({
+        address: contract.address,
+        txCount: contract.txCount,
+        entity: response.arkhamEntity?.name || "Unknown",
+        label: response.arkhamLabel?.name || "Unknown",
+        name: name || "Unknown",
+      });
+    }
+
+    return {
+      wallets: walletInfos,
+      contracts: contractInfos,
+    };
   }
 
   /**
