@@ -173,7 +173,10 @@ export class TransactionAnalyzer {
     return { eoas, contracts };
   }
 
-  async analyzeRelatedWallets(address: string): Promise<{
+  async analyzeRelatedWallets(
+    address: string,
+    threshold?: number
+  ): Promise<{
     wallets: {
       address: string;
       txCount: number;
@@ -188,7 +191,10 @@ export class TransactionAnalyzer {
       name: string;
     }[];
   }> {
-    let { eoas: wallets, contracts } = await this.getRelatedWallets(address);
+    let { eoas: wallets, contracts } = await this.getRelatedWallets(
+      address,
+      threshold
+    );
 
     if (wallets.length === 0 && contracts.length === 0) {
       console.log("No related wallets found");
@@ -222,7 +228,7 @@ export class TransactionAnalyzer {
     }
 
     // take top 5 contracts
-    contracts = contracts.sort((a, b) => b.txCount - a.txCount).slice(0, 5);
+    contracts = contracts.sort((a, b) => b.txCount - a.txCount).slice(0, 10);
     const contractInfos: {
       address: string;
       txCount: number;
