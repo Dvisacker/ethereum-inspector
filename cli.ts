@@ -99,10 +99,26 @@ program
           timingAnalysis = await analyzer.analyzeTransactionTiming(address);
           console.log(analyzer.formatAnalysis(timingAnalysis));
 
-          const { wallets: wallets2, contracts: contracts2 } =
+          let { wallets: wallets2, contracts: contracts2 } =
             await analyzer.analyzeRelatedWallets(address);
+
+          const fundingWallets = await analyzer.getFundingWallets(
+            wallets2.map((wallet) => wallet.address)
+          );
+
+          wallets2 = wallets2.map((wallet, index) => ({
+            ...wallet,
+            fundingWallet: fundingWallets.get(wallets2[index].address),
+          }));
+
           console.log("Related Wallets ...");
-          console.table(wallets2, ["address", "txCount", "entity", "label"]);
+          console.table(wallets2, [
+            "address",
+            "txCount",
+            "entity",
+            "label",
+            "fundingWallet",
+          ]);
           console.log("Most interacted contracts ...");
           console.table(contracts2, [
             "address",
