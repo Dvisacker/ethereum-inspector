@@ -1,18 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { fetchLabels } from "./index";
-import {
-  isSmartContract,
-  filterEOAAddresses,
-  findContractFunders,
-  findEOAFunder,
-  getContractName,
-} from "./evm";
-import {
-  RelatedWalletInfo,
-  TransactionAnalyzer,
-  TransactionTimingAnalysis,
-} from "./analysis";
+import { TransactionAnalyzer, TransactionTimingAnalysis } from "./analysis";
 import { printOutput } from "./utils";
 import { OutputType } from "./utils";
 import { ArkhamClient } from "./arkham";
@@ -22,48 +11,9 @@ import { isAddress } from "ethers";
 const program = new Command();
 
 program
-  .name("arkham")
-  .description("CLI to fetch and format arkham labels for entities")
-  .version("1.0.0");
-
-program
-  .command("entity")
-  .description("Fetch labels for an entity")
-  .argument("<entity>", "The entity ID to fetch labels for")
-  .option("-o, --output <type>", "Output format (csv, json, line)", "line")
-  .action(async (entity: string, options: { output: OutputType }) => {
-    try {
-      const labels = await fetchLabels(entity);
-      console.log(printOutput(options.output, labels));
-    } catch (error) {
-      console.error("Error:", error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command("address")
-  .description("Fetch address information")
-  .argument("<address>", "The address to fetch information for")
-  .action(async (address: string) => {
-    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
-    const addressInfo = await arkham.fetchAddress(address);
-
-    const info = {
-      address: addressInfo.address,
-      chain: addressInfo.chain,
-      entity: addressInfo.arkhamEntity?.name || "Unknown",
-      label: addressInfo.arkhamLabel?.name || "Unknown",
-      isUserAddress: addressInfo.isUserAddress,
-      contract: addressInfo.contract,
-    };
-
-    console.table(info);
-  });
-
-program
-  .command("analyze")
-  .description("Analyze an address or an entity")
+  .name("searchor")
+  .description("Analyze and search for entities")
+  .version("1.0.0")
   .argument("<search>", "The search query to fetch entities for")
   .action(async (search: string) => {
     const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
@@ -121,7 +71,6 @@ program
     const analyzer = new TransactionAnalyzer();
 
     let timingAnalysis: TransactionTimingAnalysis;
-    let relatedWallets: RelatedWalletInfo[];
     switch (answers2.action) {
       case "timing":
         timingAnalysis = await analyzer.analyzeTransactionTiming(address);
@@ -132,9 +81,15 @@ program
           address
         );
         console.log("Related Wallets:");
-        console.table(wallets);
+        console.table(wallets, ["address", "txCount", "entity", "label"]);
         console.log("Most interacted contracts:");
-        console.table(contracts);
+        console.table(contracts, [
+          "address",
+          "txCount",
+          "entity",
+          "label",
+          "name",
+        ]);
         break;
       case "complete":
         console.log("Timing Analysis ...");
@@ -144,24 +99,28 @@ program
         const { wallets: wallets2, contracts: contracts2 } =
           await analyzer.analyzeRelatedWallets(address);
         console.log("Related Wallets ...");
-        console.table(wallets2);
+        console.table(wallets2, ["address", "txCount", "entity", "label"]);
         console.log("Most interacted contracts ...");
-        console.table(contracts2);
+        console.table(contracts2, [
+          "address",
+          "txCount",
+          "entity",
+          "label",
+          "name",
+        ]);
         break;
     }
   });
 
-//
-
-// EVM Analysis Commands
 program
-  .command("is-contract")
-  .description("Check if an address is a smart contract")
-  .argument("<address>", "The address to check")
-  .action(async (address: string) => {
+  .command("entity")
+  .description("Fetch labels for an entity")
+  .argument("<entity>", "The entity ID to fetch labels for")
+  .option("-o, --output <type>", "Output format (csv, json, line)", "line")
+  .action(async (entity: string, options: { output: OutputType }) => {
     try {
-      const isContract = await isSmartContract(address);
-      console.log(`${address} is ${isContract ? "a contract" : "an EOA"}`);
+      const labels = await fetchLabels(entity);
+      console.log(printOutput(options.output, labels));
     } catch (error) {
       console.error("Error:", error);
       process.exit(1);
@@ -169,60 +128,26 @@ program
   });
 
 program
-  .command("filter-eoa")
-  .description("Filter a list of addresses to only EOA addresses")
-  .argument("<addresses...>", "Space-separated list of addresses to filter")
-  .action(async (addresses: string[]) => {
-    try {
-      const eoaAddresses = await filterEOAAddresses(addresses);
-      console.log("EOA addresses:");
-      eoaAddresses.forEach((addr) => console.log(addr));
-    } catch (error) {
-      console.error("Error:", error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command("find-contract-funders")
-  .description("Find the addresses that funded a given contract")
-  .argument("<address>", "The contract address to analyze")
+  .command("address")
+  .description("Fetch address information")
+  .argument("<address>", "The address to fetch information for")
   .action(async (address: string) => {
-    try {
-      const funders = await findContractFunders(address);
-      if (funders.length === 0) {
-        console.log("No funders found");
-        return;
-      }
-      console.log("Funders:");
-      funders.forEach((funder) => {
-        console.log(`From: ${funder.from}`);
-        console.log(`Value: ${funder.value.toString()} wei`);
-        console.log("---");
-      });
-    } catch (error) {
-      console.error("Error:", error);
-      process.exit(1);
-    }
-  });
+    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
+    const addressInfo = await arkham.fetchAddress(address);
 
-program
-  .command("find-eoa-funder")
-  .description("Find the first funder of an EOA address")
-  .argument("<address>", "The EOA address to analyze")
-  .action(async (address: string) => {
-    try {
-      const funder = await findEOAFunder(address);
-      if (!funder) {
-        console.log("No funder found");
-        return;
-      }
-      console.log(`From: ${funder.from}`);
-      console.log(`Value: ${funder.value.toString()} wei`);
-    } catch (error) {
-      console.error("Error:", error);
-      process.exit(1);
-    }
+    const info = {
+      address: addressInfo.address,
+      chain: addressInfo.chain,
+      entity: addressInfo.arkhamEntity?.name || "Unknown",
+      label: addressInfo.arkhamLabel?.name || "Unknown",
+      isUserAddress: addressInfo.isUserAddress,
+      contract: addressInfo.contract,
+    };
+
+    console.table(
+      [info],
+      ["address", "chain", "entity", "label", "isUserAddress", "contract"]
+    );
   });
 
 program
@@ -243,18 +168,18 @@ program
   });
 
 program
-  .command("contract-name")
-  .description("Get the name of a smart contract")
-  .argument("<address>", "The contract address to get the name for")
-  .argument("<chainid>", "The chain to get the name for")
-  .action(async (address: string, chainid: number) => {
-    try {
-      const name = await getContractName(address, chainid);
-      console.log(`Contract name: ${name}`);
-    } catch (error) {
-      console.error("Error:", error);
-      process.exit(1);
-    }
+  .command("related")
+  .description("Analyze related wallets for an address")
+  .argument("<address>", "The address to analyze")
+  .action(async (address: string) => {
+    const analyzer = new TransactionAnalyzer();
+    const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
+      address
+    );
+    console.log("Related Wallets:");
+    console.table(wallets, ["address", "txCount", "entity", "label"]);
+    console.log("Most interacted contracts:");
+    console.table(contracts, ["address", "txCount", "entity", "label", "name"]);
   });
 
 // Handle unhandled promise rejections

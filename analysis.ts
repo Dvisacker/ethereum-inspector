@@ -1,4 +1,4 @@
-import { HyperSync } from "./hypersync";
+import { ETHER, HyperSync } from "./hypersync";
 import { getContractName, isSmartContract } from "./evm";
 import { Transaction } from "@envio-dev/hypersync-client";
 import { find6HourTimeframes, inferTimezoneRegion } from "./time";
@@ -63,9 +63,8 @@ export class TransactionAnalyzer {
     contracts: { address: string; txCount: number }[];
   }> {
     // Get all transfers involving the address
-    const { transactions, logs, blocks } = await this.hyperSync.getOutflows([
-      address,
-    ]);
+    const { transactions, logs, blocks } =
+      await this.hyperSync.getOutflowsAndWhitelistedInflows([address]);
 
     // Create block number to timestamp mapping
     const blockTimestamps = new Map<number, number>();
@@ -97,6 +96,23 @@ export class TransactionAnalyzer {
           timestamp,
         });
       }
+
+      if (
+        tx.to === address &&
+        tx.from &&
+        tx.from !== address &&
+        tx.value !== BigInt(0) &&
+        tx.value &&
+        Number(tx.value) > 0.05 * ETHER // weed out spam transactions (TODO: make this configurable)
+      ) {
+        relatedAddresses.add(tx.from);
+        relatedTxs.push({
+          address: tx.from,
+          type: "sender",
+          value: BigInt(tx.value),
+          timestamp,
+        });
+      }
     }
 
     const txnsByHashes = new Map<string, Transaction>();
@@ -106,12 +122,11 @@ export class TransactionAnalyzer {
       }
     }
 
-    // Process ERC20 transfers
+    // ERC20 transfers
     for (const log of logs) {
-      // Skip if block number is undefined or topics are missing
       if (!log.blockNumber || !log.topics || log.topics.length < 3) continue;
 
-      // We weed out any logs that are from transactions that don't originate from the given address
+      // Weed out logs that are from transactions that don't originate from the given address
       // This is helpful to remove scam transactions
       const tx = txnsByHashes.get(log.transactionHash || "");
       if (!tx) continue;
