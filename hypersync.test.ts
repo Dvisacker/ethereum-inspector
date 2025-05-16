@@ -79,48 +79,4 @@ describe("HyperSync", () => {
       }
     });
   });
-
-  // describe("getWhitelistedTokenInflows", () => {
-  //   it("should get inflows of whitelisted tokens for given addresses", async () => {
-  //     const addresses = ["0x31d3243cfb54b34fc9c73e1cb1137124bd6b13e1"];
-
-  //     const result = await hyperSync.getWhitelistedTokenInflows(addresses);
-
-  //     const transfers = hyperSync.parseERC20Logs(
-  //       result.logs,
-  //       result.decodedLogs as DecodedEvent[],
-  //       addressToSymbol
-  //     );
-
-  //     console.log(transfers);
-
-  //     // console.table(transfers);
-
-  //     // // Custom replacer function to handle BigInt serialization
-  //     // const replacer = (key: string, value: any) => {
-  //     //   if (typeof value === "bigint") {
-  //     //     return value.toString();
-  //     //   }
-  //     //   return value;
-  //     // };
-
-  //     // console.log(JSON.stringify(result.decodedLogs, replacer, 2));
-
-  //     // expect(result).toBeDefined();
-  //     // expect(result.transactions).toBeDefined();
-  //     // expect(result.logs).toBeDefined();
-  //     // expect(result.decodedLogs).toBeDefined();
-  //     // expect(Array.isArray(result.transactions)).toBe(true);
-  //     // expect(Array.isArray(result.logs)).toBe(true);
-  //     // expect(Array.isArray(result.decodedLogs)).toBe(true);
-
-  //     // // If there are any logs, verify they are from whitelisted tokens
-  //     // if (result.logs.length > 0) {
-  //     //   const whitelistedAddresses = Object.values(WHITELISTED_TOKENS);
-  //     //   result.logs.forEach((log) => {
-  //     //     expect(whitelistedAddresses).toContain(log.address);
-  //     //   });
-  //     // }
-  //   });
-  // });
 });

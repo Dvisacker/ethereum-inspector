@@ -148,13 +148,11 @@ program
     console.table(contracts, ["address", "txCount", "entity", "label", "name"]);
   });
 
-// Handle unhandled promise rejections
 process.on("unhandledRejection", (error) => {
   console.error("Unhandled promise rejection:", error);
   process.exit(1);
 });
 
-// Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
   console.error("Uncaught exception:", error);
   process.exit(1);

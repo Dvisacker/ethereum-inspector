@@ -1,13 +1,5 @@
 import { removeDuplicatesByKey } from "./helpers";
 import { LabelResult, Transfer, TransferResponse } from "./types";
-import { Command } from "commander";
-import {
-  isSmartContract,
-  filterEOAAddresses,
-  findContractFunders,
-  findEOAFunder,
-} from "./evm";
-import { TransactionAnalyzer } from "./analysis";
 
 export const fetchTransfers = async (
   entity: string,

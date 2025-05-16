@@ -6,6 +6,9 @@ import {
   TransactionField,
   Log,
   DecodedEvent,
+  Block,
+  Transaction,
+  Query,
 } from "@envio-dev/hypersync-client";
 import { addressToTopic } from "./helpers";
 
@@ -56,11 +59,37 @@ export class HyperSync {
     ]);
   }
 
-  private async executeQuery(query: any) {
-    console.log("Running hypersync query...");
-    const { data } = await this.client.get(query);
-    const { transactions, logs, blocks } = data;
-    const decodedLogs = await this.decoder.decodeLogs(logs);
+  private async executeQuery(query: Query) {
+    let transactions: Transaction[] = [];
+    let logs: Log[] = [];
+    let blocks: Block[] = [];
+    let decodedLogs: DecodedEvent[] = [];
+    const height = await this.client.getHeight();
+    let numResults = 0;
+
+    if (!height) {
+      throw new Error("No height found");
+    }
+
+    while (
+      height > query.fromBlock &&
+      (!query.maxNumTransactions || numResults < query.maxNumTransactions)
+    ) {
+      // console.log("Querying from block:", query.fromBlock);
+      const res = await this.client.get(query);
+      const { data } = res;
+      const decoded = await this.decoder.decodeLogs(data.logs);
+      if (data.transactions.length !== 0) {
+        transactions.push(...data.transactions);
+        logs.push(...data.logs);
+        blocks.push(...data.blocks);
+        decodedLogs.push(...((decoded || []) as DecodedEvent[]));
+        numResults += data.transactions.length;
+      }
+
+      query.fromBlock = res.nextBlock;
+    }
+
     return { transactions, logs, decodedLogs, blocks };
   }
 
@@ -204,10 +233,36 @@ export class HyperSync {
       fromBlock: 0,
       transactions: [
         {
-          to: [address],
+          to: [
+            "0x28c6c06298d514db089934071355e5743bf21d60", // Binance hot wallet
+            "0x3f5ce5fbfe3e9af3971dd833d26ba9b5c936f0be", // Another Binance hot wallet,
+          ],
         },
       ],
-      fieldSelection: this.getBaseFieldSelection(),
+      fieldSelection: {
+        block: [BlockField.Number, BlockField.Timestamp, BlockField.Hash],
+        log: [
+          LogField.BlockNumber,
+          LogField.LogIndex,
+          LogField.TransactionIndex,
+          LogField.TransactionHash,
+          LogField.Data,
+          LogField.Address,
+          LogField.Topic0,
+          LogField.Topic1,
+          LogField.Topic2,
+          LogField.Topic3,
+        ],
+        transaction: [
+          TransactionField.BlockNumber,
+          TransactionField.TransactionIndex,
+          TransactionField.Hash,
+          TransactionField.From,
+          TransactionField.To,
+          TransactionField.Value,
+          TransactionField.Input,
+        ],
+      },
     };
 
     return this.executeQuery(query);
@@ -241,6 +296,64 @@ export class HyperSync {
     return this.executeQuery(query);
   }
 
+  async getFirstTransactionsTo(addresses: string[]) {
+    const query = {
+      fromBlock: 0,
+      transactions: [
+        {
+          to: addresses,
+        },
+      ],
+      fieldSelection: {
+        transaction: [
+          TransactionField.BlockNumber,
+          TransactionField.TransactionIndex,
+          TransactionField.Hash,
+          TransactionField.From,
+          TransactionField.To,
+          TransactionField.Value,
+          TransactionField.Input,
+        ],
+        block: [BlockField.Number, BlockField.Timestamp],
+      },
+      // Get one transaction per address
+      limit: addresses.length,
+      // Sort by block number and transaction index in ascending order
+      orderBy: [
+        { field: "blockNumber", direction: "asc" },
+        { field: "transactionIndex", direction: "asc" },
+      ],
+    };
+
+    const { transactions, blocks } = await this.executeQuery(query);
+
+    // Create a map of block numbers to timestamps for quick lookup
+    const blockTimestampMap = new Map(
+      blocks.map((block) => [block.number, block.timestamp])
+    );
+
+    // Group transactions by recipient address
+    const transactionsByAddress = new Map<string, any>();
+
+    for (const tx of transactions) {
+      // Only process if we haven't found a transaction for this address yet
+      if (tx.to && !transactionsByAddress.has(tx.to)) {
+        transactionsByAddress.set(tx.to, {
+          ...tx,
+          timestamp: blockTimestampMap.get(tx.blockNumber),
+        });
+      }
+    }
+
+    // Create result object with all addresses, even those without transactions
+    const result = new Map<string, any>();
+    for (const address of addresses) {
+      result.set(address, transactionsByAddress.get(address) || null);
+    }
+
+    return result;
+  }
+
   /* 
   This function queries incoming ERC20 transfers for a list of ERC20 tokens. This is useful
   for getting approximate inflows while avoiding spam transactions (in particular, spam ERC20 transfers 
@@ -270,6 +383,18 @@ export class HyperSync {
         },
       ],
       fieldSelection: this.getBaseFieldSelection(),
+    };
+
+    return this.executeQuery(query);
+  }
+
+  async getAddressFirstReceivedTransaction(address: string) {
+    const query = {
+      fromBlock: 0,
+      transactions: [{ to: [address] }],
+      fieldSelection: this.getBaseFieldSelection(),
+      maxNumTransactions: 1,
+      orderBy: [{ field: "blockNumber", direction: "asc" }],
     };
 
     return this.executeQuery(query);

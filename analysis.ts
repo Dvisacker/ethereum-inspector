@@ -227,7 +227,7 @@ export class TransactionAnalyzer {
       });
     }
 
-    // take top 5 contracts
+    // take top 10 contracts
     contracts = contracts.sort((a, b) => b.txCount - a.txCount).slice(0, 10);
     const contractInfos: {
       address: string;
@@ -253,6 +253,24 @@ export class TransactionAnalyzer {
       wallets: walletInfos,
       contracts: contractInfos,
     };
+  }
+
+  async getFundingWallets(addresses: string[]): Promise<string[]> {
+    const fundingWallets = new Map<string, string>();
+
+    for (const address of addresses) {
+      const tx = await this.hyperSync.getAddressFirstReceivedTransaction(
+        address
+      );
+      console.log(tx);
+      if (tx.transactions.length > 0) {
+        if (tx.transactions[0].from) {
+          fundingWallets.set(address, tx.transactions[0].from);
+        }
+      }
+    }
+
+    return Array.from(fundingWallets.values());
   }
 
   /**
