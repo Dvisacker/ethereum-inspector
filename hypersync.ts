@@ -157,12 +157,26 @@ export class HyperSync {
     return this.executeQuery(query);
   }
 
-  async getTransactionsFromAddress(address: string) {
+  async getTransactionsTo(addresses: string[]) {
     const query = {
       fromBlock: 0,
       transactions: [
         {
-          from: [address],
+          to: addresses,
+        },
+      ],
+      fieldSelection: this.getBaseFieldSelection(),
+    };
+
+    return this.executeQuery(query);
+  }
+
+  async getTransactionsFrom(addresses: string[]) {
+    const query = {
+      fromBlock: 0,
+      transactions: [
+        {
+          from: addresses,
         },
       ],
       fieldSelection: this.getBaseFieldSelection(),

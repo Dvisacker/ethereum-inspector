@@ -242,8 +242,9 @@ export class TransactionAnalyzer {
   async analyzeTransactionTiming(
     address: string
   ): Promise<TransactionTimingAnalysis> {
-    const { transactions, blocks } =
-      await this.hyperSync.getTransactionsFromAddress(address);
+    const { transactions, blocks } = await this.hyperSync.getTransactionsFrom([
+      address,
+    ]);
 
     // Create block number to timestamp mapping
     const blockTimestamps = new Map<number, number>();

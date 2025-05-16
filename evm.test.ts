@@ -5,6 +5,10 @@ import {
   findContractFunders,
   findEOAFunder,
   getContractName,
+  defaultProvider,
+  isGnosisSafeProxy,
+  isSafeContractBytecode,
+  detectProxyAndImplementation,
 } from "./evm";
 import { HyperSync } from "./hypersync";
 
@@ -109,5 +113,153 @@ describe("EVM Utils", () => {
       const name = await getContractName(UNISWAP_V2_ROUTER, 1);
       expect(name).toBe("UniswapV2Router02");
     }, 100000);
+  });
+
+  describe("isGnosisSafe", () => {
+    // Known Gnosis Safe v1.4.1 contract on Ethereum mainnet
+    const knownSafe111Address = "0x1230B3d59858296A31053C1b8562Ecf89A2f888b";
+    const knownSafe141Address = "0x5Fe856Cc2A452d9C01969e9A8F63E6100504544C";
+    // Random contract address that is not a Safe
+    const nonSafeAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F"; // DAI token
+
+    it("should correctly identify a Gnosis Safe contract (V 1.1.1)", async () => {
+      const result = await isGnosisSafeProxy(
+        knownSafe111Address,
+        defaultProvider
+      );
+
+      expect(result.isSafe).toBe(true);
+      expect(result.version).toBeDefined();
+      expect(Array.isArray(result.owners)).toBe(true);
+      expect(typeof result.threshold).toBe("number");
+      expect(typeof result.nonce).toBe("number");
+
+      // Additional specific checks for this known Safe
+      expect(result.owners?.length).toBeGreaterThan(0);
+      expect(result.threshold).toBeGreaterThan(0);
+    }, 30000); // Increased timeout for network calls
+
+    it("should correctly identify a Gnosis Safe contract (V 1.4.1)", async () => {
+      const result = await isGnosisSafeProxy(
+        knownSafe141Address,
+        defaultProvider
+      );
+
+      expect(result.isSafe).toBe(true);
+      expect(result.version).toBeDefined();
+      expect(Array.isArray(result.owners)).toBe(true);
+      expect(typeof result.threshold).toBe("number");
+      expect(typeof result.nonce).toBe("number");
+
+      // Additional specific checks for this known Safe
+      expect(result.owners?.length).toBeGreaterThan(0);
+      expect(result.threshold).toBeGreaterThan(0);
+    }, 30000);
+
+    it("should return false for a non-Safe contract", async () => {
+      const result = await isGnosisSafeProxy(nonSafeAddress, defaultProvider);
+
+      expect(result.isSafe).toBe(false);
+      expect(result.version).toBeUndefined();
+      expect(result.owners).toBeUndefined();
+      expect(result.threshold).toBeUndefined();
+      expect(result.nonce).toBeUndefined();
+    }, 30000);
+
+    it("should handle invalid addresses gracefully", async () => {
+      const invalidAddress = "0xinvalid";
+      const result = await isGnosisSafeProxy(invalidAddress, defaultProvider);
+
+      expect(result.isSafe).toBe(false);
+    }, 30000);
+  });
+
+  describe("isSafeContractBytecode", () => {
+    it("should correctly identify Safe contract bytecode (not a proxy)", async () => {
+      const provider = defaultProvider;
+      const knownSafe111Address = "0x34cfac646f301356faa8b21e94227e3583fe3f5f";
+      const bytecode = await provider.getCode(knownSafe111Address);
+      const result = isSafeContractBytecode(`0x${bytecode}`);
+
+      expect(result).toBe(true);
+    });
+
+    it("should correctly identify Safe contract bytecode (proxy)", async () => {
+      const provider = defaultProvider;
+      const knownSafe111Address = "0x1230B3d59858296A31053C1b8562Ecf89A2f888b";
+      const bytecode = await provider.getCode(knownSafe111Address);
+      const result = isSafeContractBytecode(`0x${bytecode}`);
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("detectProxyAndImplementation", () => {
+    const known111SafeProxy = "0x1230B3d59858296A31053C1b8562Ecf89A2f888b";
+    const known141SafeProxy = "0x5Fe856Cc2A452d9C01969e9A8F63E6100504544C";
+    const nonProxyAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F"; // DAI token (not a proxy)
+
+    // it("should detect EIP-1967 proxy and return implementation", async () => {
+    //   const result = await detectProxyAndImplementation(
+    //     knownEIP1967Proxy,
+    //     defaultProvider
+    //   );
+
+    //   expect(result.isProxy).toBe(true);
+    //   expect(result.implementation).toBeDefined();
+    //   expect(result.proxyType).toBe("EIP-1967");
+    // }, 30000);
+
+    // it("should detect EIP-1822 proxy and return implementation", async () => {
+    //   const result = await detectProxyAndImplementation(
+    //     knownEIP1822Proxy,
+    //     defaultProvider
+    //   );
+
+    //   expect(result.isProxy).toBe(true);
+    //   expect(result.implementation).toBeDefined();
+    //   expect(result.proxyType).toBe("EIP-1822");
+    // }, 30000);
+
+    // it("should detect Minimal Proxy and return implementation", async () => {
+    //   const result = await detectProxyAndImplementation(
+    //     knownMinimalProxy,
+    //     defaultProvider
+    //   );
+
+    //   expect(result.isProxy).toBe(true);
+    //   expect(result.implementation).toBeDefined();
+    //   expect(result.proxyType).toBe("Minimal Proxy");
+    // }, 30000);
+
+    // it("should detect UUPS proxy and return implementation", async () => {
+    //   const result = await detectProxyAndImplementation(
+    //     knownUUPSProxy,
+    //     defaultProvider
+    //   );
+
+    //   expect(result.isProxy).toBe(true);
+    //   expect(result.implementation).toBeDefined();
+    //   expect(result.proxyType).toBe("UUPS");
+    // }, 30
+
+    it("should return false for non-proxy contracts", async () => {
+      const result = await detectProxyAndImplementation(
+        nonProxyAddress,
+        defaultProvider
+      );
+
+      expect(result.isProxy).toBe(false);
+      expect(result.implementation).toBeUndefined();
+      expect(result.proxyType).toBeUndefined();
+    }, 30000);
+
+    it("should handle invalid addresses gracefully", async () => {
+      const invalidAddress = "0xinvalid";
+
+      await expect(
+        detectProxyAndImplementation(invalidAddress, defaultProvider)
+      ).rejects.toThrow();
+    }, 30000);
   });
 });
