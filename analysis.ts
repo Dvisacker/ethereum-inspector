@@ -365,7 +365,13 @@ export class TransactionAnalyzer {
    * @param analysis The analysis results to format
    * @returns string Formatted analysis results
    */
-  formatAnalysis(analysis: TransactionTimingAnalysis): string {
+  formatAnalysis(analysis: TransactionTimingAnalysis): {
+    summary: string;
+    hourlyDistribution: { hour: string; count: number }[];
+    dailyDistribution: { day: string; count: number }[];
+    monthlyDistribution: { month: string; count: number }[];
+    yearlyDistribution: { year: string; count: number }[];
+  } {
     const days = [
       "Sunday",
       "Monday",
@@ -398,6 +404,7 @@ export class TransactionAnalyzer {
     };
 
     let timezoneInfo = "";
+
     if (analysis.inferredTimezone) {
       const { region, confidence } = analysis.inferredTimezone;
       timezoneInfo = `
@@ -406,11 +413,11 @@ Inferred Timezone:
 `;
     }
 
-    return `
+    const summary = `
 Transaction Timing Analysis:
 ---------------------------
 Total Transactions: ${analysis.totalTransactions}
-Average Transactions per Day: ${analysis.averageTransactionsPerDay.toFixed(2)}
+Average Transactions per day: ${analysis.averageTransactionsPerDay.toFixed(2)}
 
 Busiest Periods:
 - Hour: ${analysis.busiestHour.hour}:00 UTC (${
@@ -431,33 +438,43 @@ Busiest Periods:
 - Least Active 6-Hour Window: ${format6HourWindow(
       analysis.leastBusy6Hour.startHour
     )} (${analysis.leastBusy6Hour.count} transactions)
-${timezoneInfo}
-Hourly Distribution:
-${Object.entries(analysis.hourlyDistribution)
-  .sort(([a], [b]) => Number(a) - Number(b))
-  .map(
-    ([hour, count]) =>
-      `  ${hour.toString().padStart(2, "0")}:00 - ${count} transactions`
-  )
-  .join("\n")}
+${timezoneInfo}`;
 
-Daily Distribution:
-${Object.entries(analysis.dailyDistribution)
-  .sort(([a], [b]) => Number(a) - Number(b))
-  .map(([day, count]) => `  ${days[Number(day)]} - ${count} transactions`)
-  .join("\n")}
+    // Format distributions for console.table
+    const hourlyDistribution = Object.entries(analysis.hourlyDistribution)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([hour, count]) => ({
+        hour: `${hour.toString().padStart(2, "0")}:00`,
+        count,
+      }));
 
-Monthly Distribution:
-${Object.entries(analysis.monthlyDistribution)
-  .sort(([a], [b]) => Number(a) - Number(b))
-  .map(([month, count]) => `  ${months[Number(month)]} - ${count} transactions`)
-  .join("\n")}
+    const dailyDistribution = Object.entries(analysis.dailyDistribution)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([day, count]) => ({
+        day: days[Number(day)],
+        count,
+      }));
 
-Yearly Distribution:
-${Object.entries(analysis.yearlyDistribution)
-  .sort(([a], [b]) => Number(a) - Number(b))
-  .map(([year, count]) => `  ${year} - ${count} transactions`)
-  .join("\n")}
-    `;
+    const monthlyDistribution = Object.entries(analysis.monthlyDistribution)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([month, count]) => ({
+        month: months[Number(month)],
+        count,
+      }));
+
+    const yearlyDistribution = Object.entries(analysis.yearlyDistribution)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([year, count]) => ({
+        year,
+        count,
+      }));
+
+    return {
+      summary,
+      hourlyDistribution,
+      dailyDistribution,
+      monthlyDistribution,
+      yearlyDistribution,
+    };
   }
 }
