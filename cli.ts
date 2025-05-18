@@ -29,7 +29,7 @@ program
       // if search is an ethereum address, fetch the entity
       if (!isAddress(search)) {
         const searchSpinner = ora(
-          chalk.cyan("Searching for entities...")
+          chalk.green("Searching for entities...")
         ).start();
         const results = await arkham.searchEntities(search);
         searchSpinner.succeed(chalk.green("Search complete!"));
@@ -44,9 +44,9 @@ program
         const answers = await inquirer.prompt({
           type: "list",
           name: "entity",
-          message: chalk.cyan("Select an entity"),
+          message: chalk.green("Select an entity"),
           choices: addresses.map((address) => ({
-            name: `${chalk.cyan(address.entity)} (${chalk.gray(
+            name: `${chalk.green(address.entity)} (${chalk.gray(
               address.address
             )})`,
             value: address.address,
@@ -70,11 +70,11 @@ program
       const answers2 = await inquirer.prompt({
         type: "list",
         name: "action",
-        message: chalk.cyan("What do you want to do"),
+        message: chalk.green("What do you want to do"),
         choices: [
-          { name: chalk.cyan("Complete Analysis"), value: "complete" },
-          { name: chalk.cyan("Timing Analysis"), value: "timing" },
-          { name: chalk.cyan("Related Wallets"), value: "related" },
+          { name: chalk.green("Complete Analysis"), value: "complete" },
+          { name: chalk.green("Timing Analysis"), value: "timing" },
+          { name: chalk.green("Related Wallets"), value: "related" },
           { name: chalk.gray("Exit"), value: "exit" },
         ],
       });
@@ -85,7 +85,7 @@ program
       switch (answers2.action) {
         case "timing":
           const timingSpinner = ora(
-            chalk.cyan("Analyzing transaction timing...")
+            chalk.green("Analyzing transaction timing...")
           ).start();
           timingAnalysis = await analyzer.analyzeTransactionTiming(address);
           timingSpinner.succeed(chalk.green("Timing analysis complete!"));
@@ -93,22 +93,22 @@ program
           const formatted = analyzer.formatAnalysis(timingAnalysis);
           console.log(chalk.bold(formatted.summary));
 
-          console.log(chalk.cyan("\nHourly Distribution:"));
+          console.log(chalk.green("\nHourly Distribution:"));
           console.table(formatted.hourlyDistribution);
 
-          console.log(chalk.cyan("\nDaily Distribution:"));
+          console.log(chalk.green("\nDaily Distribution:"));
           console.table(formatted.dailyDistribution);
 
-          console.log(chalk.cyan("\nMonthly Distribution:"));
+          console.log(chalk.green("\nMonthly Distribution:"));
           console.table(formatted.monthlyDistribution);
 
-          console.log(chalk.cyan("\nYearly Distribution:"));
+          console.log(chalk.green("\nYearly Distribution:"));
           console.table(formatted.yearlyDistribution);
           break;
 
         case "related":
           const relatedSpinner = ora(
-            chalk.cyan("Analyzing related wallets...")
+            chalk.green("Analyzing related wallets...")
           ).start();
           const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
             address,
@@ -118,9 +118,9 @@ program
             chalk.green("Related wallets analysis complete!")
           );
 
-          console.log(chalk.cyan("Related Wallets:"));
+          console.log(chalk.green("Related Wallets:"));
           console.table(wallets, ["address", "txCount", "entity", "label"]);
-          console.log(chalk.cyan("Most interacted contracts:"));
+          console.log(chalk.green("Most interacted contracts:"));
           console.table(contracts, [
             "address",
             "txCount",
@@ -131,8 +131,8 @@ program
           break;
 
         case "complete":
-          const completeSpinner = ora(
-            chalk.cyan("Performing timing analysis...")
+          const timingSpinner2 = ora(
+            chalk.green("Performing timing analysis...\n")
           ).start();
 
           timingAnalysis = await analyzer.analyzeTransactionTiming(address);
@@ -141,43 +141,58 @@ program
           console.log("\n");
           console.log(chalk.bold(formatted2.summary));
 
-          console.log(chalk.cyan("\nHourly Distribution:"));
+          console.log(chalk.green("\nHourly Distribution:"));
           console.table(formatted2.hourlyDistribution);
 
-          console.log(chalk.cyan("\nDaily Distribution:"));
+          console.log(chalk.green("\nDaily Distribution:"));
           console.table(formatted2.dailyDistribution);
 
-          console.log(chalk.cyan("\nMonthly Distribution:"));
+          console.log(chalk.green("\nMonthly Distribution:"));
           console.table(formatted2.monthlyDistribution);
 
-          console.log(chalk.cyan("\nYearly Distribution:"));
+          console.log(chalk.green("\nYearly Distribution:"));
           console.table(formatted2.yearlyDistribution);
+
+          timingSpinner2.succeed(chalk.green("Timing analysis complete!\n"));
+
+          const relatedSpinner2 = ora(
+            chalk.green("Analyzing related wallets...\n")
+          ).start();
 
           const { wallets: wallets2, contracts: contracts2 } =
             await analyzer.analyzeRelatedWallets(address);
 
+          relatedSpinner2.succeed(
+            chalk.green("Related wallets analysis complete!\n")
+          );
+
           const fundingSpinner = ora(
-            chalk.cyan("\nFinding funding wallets...\n")
+            chalk.green("Finding funding wallets...\n")
           ).start();
           const fundingWallets = await analyzer.getFundingWallets(
             wallets2.map((wallet) => wallet.address)
           );
-          fundingSpinner.succeed(chalk.green("\nFunding wallets found!\n"));
+
+          fundingSpinner.succeed(chalk.green("Funding wallets found!\n"));
 
           const walletsWithFunding = wallets2.map((wallet, index) => ({
             ...wallet,
-            fundingWallet: fundingWallets.get(wallets2[index].address),
+            fundingWallet: fundingWallets.get(wallets2[index].address)?.address,
+            fundingWalletEntity: `${
+              fundingWallets.get(wallets2[index].address)?.entity
+            } (${fundingWallets.get(wallets2[index].address)?.label})`,
           }));
 
-          console.log(chalk.cyan("Related Wallets ..."));
+          console.log(chalk.green("Related Wallets:"));
           console.table(walletsWithFunding, [
             "address",
             "txCount",
             "entity",
             "label",
             "fundingWallet",
+            "fundingWalletEntity",
           ]);
-          console.log(chalk.cyan("Most interacted contracts ..."));
+          console.log(chalk.green("Most interacted contracts:"));
           console.table(contracts2, [
             "address",
             "txCount",
@@ -186,7 +201,7 @@ program
             "name",
           ]);
 
-          completeSpinner.succeed(chalk.green("Complete analysis finished!"));
+          // completeSpinner.succeed(chalk.green("Complete analysis finished!"));
           break;
       }
     }
@@ -197,7 +212,7 @@ program
   .description("Analyze transaction timing patterns for an address")
   .argument("<address>", "The address to analyze")
   .action(async (address: string) => {
-    const spinner = ora(chalk.cyan("Analyzing transaction timing...")).start();
+    const spinner = ora(chalk.green("Analyzing transaction timing...")).start();
     try {
       const analyzer = new TransactionAnalyzer();
       const analysis = await analyzer.analyzeTransactionTiming(address);
@@ -207,16 +222,16 @@ program
 
       console.log(chalk.bold(formatted.summary));
 
-      console.log(chalk.cyan("\nHourly Distribution:"));
+      console.log(chalk.green("\nHourly Distribution:"));
       console.table(formatted.hourlyDistribution);
 
-      console.log(chalk.cyan("\nDaily Distribution:"));
+      console.log(chalk.green("\nDaily Distribution:"));
       console.table(formatted.dailyDistribution);
 
-      console.log(chalk.cyan("\nMonthly Distribution:"));
+      console.log(chalk.green("\nMonthly Distribution:"));
       console.table(formatted.monthlyDistribution);
 
-      console.log(chalk.cyan("\nYearly Distribution:"));
+      console.log(chalk.green("\nYearly Distribution:"));
       console.table(formatted.yearlyDistribution);
     } catch (error) {
       spinner.fail(chalk.red("Analysis failed!"));
@@ -230,7 +245,7 @@ program
   .description("Analyze related wallets for an address")
   .argument("<address>", "The address to analyze")
   .action(async (address: string) => {
-    const spinner = ora(chalk.cyan("Analyzing related wallets...")).start();
+    const spinner = ora(chalk.green("Analyzing related wallets...")).start();
     try {
       const analyzer = new TransactionAnalyzer();
       const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
@@ -238,9 +253,9 @@ program
       );
       spinner.succeed(chalk.green("Analysis complete!"));
 
-      console.log(chalk.cyan("Related Wallets:"));
+      console.log(chalk.green("Related Wallets:"));
       console.table(wallets, ["address", "txCount", "entity", "label"]);
-      console.log(chalk.cyan("Most interacted contracts:"));
+      console.log(chalk.green("Most interacted contracts:"));
       console.table(contracts, [
         "address",
         "txCount",

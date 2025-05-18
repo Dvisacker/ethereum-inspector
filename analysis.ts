@@ -255,16 +255,39 @@ export class TransactionAnalyzer {
     };
   }
 
-  async getFundingWallets(addresses: string[]): Promise<Map<string, string>> {
-    const fundingWallets = new Map<string, string>();
+  async getFundingWallets(addresses: string[]): Promise<
+    Map<
+      string,
+      {
+        address: string;
+        entity: string;
+        label: string;
+      }
+    >
+  > {
+    const fundingWallets = new Map<
+      string,
+      {
+        address: string;
+        entity: string;
+        label: string;
+      }
+    >();
+    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
 
     for (const address of addresses) {
       const tx = await this.hyperSync.getAddressFirstReceivedTransaction(
         address
       );
+      const { arkhamEntity, arkhamLabel } = await arkham.fetchAddress(address);
+
       if (tx.transactions.length > 0) {
         if (tx.transactions[0].from) {
-          fundingWallets.set(address, tx.transactions[0].from);
+          fundingWallets.set(address, {
+            address: tx.transactions[0].from,
+            entity: arkhamEntity?.name || "Unknown",
+            label: arkhamLabel?.name || "Unknown",
+          });
         }
       }
     }
