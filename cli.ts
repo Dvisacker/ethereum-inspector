@@ -29,11 +29,7 @@ program
 
       // if search is an ethereum address, fetch the entity
       if (!isAddress(search)) {
-        const searchSpinner = ora(
-          chalk.green("Searching for entities...")
-        ).start();
         const results = await arkham.searchEntities(search);
-        searchSpinner.succeed(chalk.green("Search complete!"));
 
         const addresses = results.arkhamAddresses.map((address) => ({
           address: address.address,
@@ -45,7 +41,7 @@ program
         const answers = await inquirer.prompt({
           type: "list",
           name: "entity",
-          message: chalk.green("Select an entity"),
+          message: chalk.green("Select a wallet"),
           choices: addresses.map((address) => ({
             name: `${chalk.green(address.entity)} (${chalk.gray(
               address.address
@@ -182,15 +178,16 @@ program
         if (answers2.action.includes("related")) {
           // Case of related wallets + funding wallets of related wallets
           if (answers2.action.includes("funding")) {
+            console.log("\n");
             const fundingWalletsSpinner = ora(
-              chalk.green("\nAnalyzing funding wallets...")
+              chalk.green("Analyzing related wallets funder wallets...")
             ).start();
             const fundingWallets = await analyzer.getFundingWallets(
               wallets.map((wallet) => wallet.address)
             );
 
             fundingWalletsSpinner.succeed(
-              chalk.green("\nFunding wallets found!")
+              chalk.green("Related wallets funder wallets analysis complete!")
             );
 
             const walletsWithFunding = wallets.map((wallet, index) => ({

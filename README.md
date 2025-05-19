@@ -2,19 +2,57 @@
 
 A command-line interface for analyzing Ethereum addresses and transactions.
 
-## Installation
+<video width="100%" controls>
+  <source src="assets/vid.mov" type="video/quicktime">
+  Your browser does not support the video tag.
+</video>
+
+## Installation (didn't test, only use dev mode for now)
 
 ```bash
 npm install -g .
-
 ```
 
 ## Development
 
+1. Copy `.env.example` to `.env` and fill in the variables (see config section for more details)
+
+2. Install dependencies
+
 ```bash
 npm install
+```
+
+3. Run the CLI
+
+```bash
 npm run dev <address>
 ```
+
+
+## Current features
+
+For old addresses or addresses with a lot of activity, the analysis might take a while (several minutes).
+
+### Transaction timing analysis
+
+* Busiest periods
+* Work window / Sleep window
+* Inferred timezone
+
+### Related wallets analysis
+
+* Related wallets. Based on txs and outflows with some heuristic to weed out scam transactions. 
+* Arkham entity/labels
+
+### Related wallets funder wallet analysis
+
+* For each related wallet, get the funder wallet
+
+### Interacted contracts analysis
+
+* Get most interacted contracts
+
 
 ## Configuration
 
@@ -30,6 +68,7 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
 
 ## TODO
 
+### Improvements
 - Optimizations
       * Some hypersync queries are repeated
       * Promise.all instead of looping awaits
@@ -44,8 +83,9 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
 - Check if there is way to use Nansen/Etherscan free
 - Cache last analysis selected options 
 - If a contract name is a proxy (Ex ERC1967Proxy), get the implementation contract name.
+- ?
 
-### Features
+### Additional features
 - Wallet similarity analysis between 2 wallets and calculate 1) tx timing similarity score 2) interacted contracts similarity score 3) etc. Not too hard to do and this feature doesn't exist anywhere else.
 - Column with total net inflow/outflow to related wallets. Only considering major tokens like USDC, USDT, ETH, WETH, WBTC, etc. to simplify. Maybe a good feature to distinguish which wallets are really related.
 - Embedded DB (sqlite) with labels from github. Also ofac lists/apis.

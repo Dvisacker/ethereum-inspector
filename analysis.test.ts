@@ -7,8 +7,8 @@ describe("TransactionAnalyzer", () => {
     analyzer = new TransactionAnalyzer();
   });
 
-  describe("getFundingWallets", () => {
-    it("should return funding wallet addresses for given addresses", async () => {
+  describe("getFunderWallets", () => {
+    it("should return funder wallet addresses for given addresses", async () => {
       const addresses = [
         "0x28c6c06298d514db089934071355e5743bf21d60", // Binance hot wallet
         "0x3f5ce5fbfe3e9af3971dd833d26ba9b5c936f0be", // Another Binance hot wallet
