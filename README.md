@@ -1,11 +1,6 @@
 # Wallet tracker CLI
 
-A command-line interface for analyzing Ethereum addresses and transactions.
-
-<video width="100%" controls>
-  <source src="assets/vid.mov" type="video/quicktime">
-  Your browser does not support the video tag.
-</video>
+A command-line interface for analyzing ethereum addresses.
 
 ## Installation (didn't test, only use dev mode for now)
 
@@ -29,6 +24,7 @@ npm install
 npm run dev <address>
 ```
 
+![Main screen](./assets/command.png)
 
 ## Current features
 
@@ -39,19 +35,22 @@ For old addresses or addresses with a lot of activity, the analysis might take a
 * Busiest periods
 * Work window / Sleep window
 * Inferred timezone
+* Tx distribution
 
 ### Related wallets analysis
 
 * Related wallets. Based on txs and outflows with some heuristic to weed out scam transactions. 
 * Arkham entity/labels
 
-### Related wallets funder wallet analysis
-
-* For each related wallet, get the funder wallet
-
 ### Interacted contracts analysis
 
 * Get most interacted contracts
+
+![Related wallets](./assets/related-wallets.png)
+
+### Related wallets funder wallet analysis
+
+* For each related wallet, get the funder wallet
 
 
 ## Configuration
@@ -69,16 +68,16 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
 ## TODO
 
 ### Improvements
-- Optimizations
-      * Some hypersync queries are repeated
-      * Promise.all instead of looping awaits
-      * Treat related wallets with high tx counts differently (skip costly analysises)
-      * Detect known contracts by bytecode to avoid calling etherscan (also faster)
+- Optimizations:
+  - Some hypersync queries can be batched
+  - Promise.all instead of looping awaits
+  - Treat related wallets with high tx counts differently (skip costly analysises)
+  - Detect known contracts by bytecode to avoid calling etherscan (also faster)
 - Config file with options: 
-     * Threshold of txns to be considered a related wallet
-     * Whether inflows are considered when determining related wallets. 
-     * Max number of interact contracts (currently 10)
-     * etc. 
+  - Threshold of txns to be considered a related wallet
+  - Whether inflows are considered when determining related wallets. 
+  - Max number of interact contracts (currently 10)
+  - etc. 
 - Improved heuristic for related wallets. 
 - Check if there is way to use Nansen/Etherscan free
 - Cache last analysis selected options 
@@ -88,7 +87,7 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
 ### Additional features
 - Wallet similarity analysis between 2 wallets and calculate 1) tx timing similarity score 2) interacted contracts similarity score 3) etc. Not too hard to do and this feature doesn't exist anywhere else.
 - Column with total net inflow/outflow to related wallets. Only considering major tokens like USDC, USDT, ETH, WETH, WBTC, etc. to simplify. Maybe a good feature to distinguish which wallets are really related.
-- Embedded DB (sqlite) with labels from github. Also ofac lists/apis.
+- Embedded DB (sqlite?) with labels from github. Also ofac lists/apis.
 - Related wallets first tx date
 - Export report to PDF
 - Export transactions/inflow/outflows to CSV

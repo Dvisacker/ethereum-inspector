@@ -83,10 +83,6 @@ export class ArkhamClient {
       "cache-control": "no-cache",
       pragma: "no-cache",
       priority: "u=0, i",
-      "sec-ch-ua":
-        '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"macOS"',
       "sec-fetch-dest": "document",
       "sec-fetch-mode": "navigate",
       "sec-fetch-site": "none",
