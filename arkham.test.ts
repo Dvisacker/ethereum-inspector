@@ -1,28 +1,22 @@
 import { ArkhamClient } from "./arkham";
 import dotenv from "dotenv";
 
-// Load environment variables
 dotenv.config();
 
-// Initialize the client
 const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
 
 describe("ArkhamClient", () => {
-  // Test searchEntities endpoint
   describe("searchEntities", () => {
     it('should return search results for "dcfgod"', async () => {
       const results = await arkham.searchEntities("dcfgod");
 
-      // Log the full response for debugging
       console.log("Search Results:", JSON.stringify(results, null, 2));
 
-      // Basic structure checks
       expect(results).toBeDefined();
       expect(Array.isArray(results.arkhamEntities)).toBe(true);
       expect(Array.isArray(results.arkhamAddresses)).toBe(true);
       expect(Array.isArray(results.ens)).toBe(true);
 
-      // Check if we found the expected entity
       const dcfgod = results.arkhamEntities.find((e) => e.id === "dcfgod");
       expect(dcfgod).toBeDefined();
       expect(dcfgod?.name).toBe("DCF GOD");
@@ -35,7 +29,6 @@ describe("ArkhamClient", () => {
     it('should return entity information for "dcfgod"', async () => {
       const entity = await arkham.fetchEntity("dcfgod");
 
-      // Log the full response for debugging
       console.log("Entity Info:", JSON.stringify(entity, null, 2));
 
       expect(entity).toBeDefined();
@@ -47,14 +40,11 @@ describe("ArkhamClient", () => {
     }, 30000);
   });
 
-  // Test fetchAddress endpoint
   describe("fetchAddress", () => {
     it("should return address information for a known address", async () => {
-      // Using a known address from DCF GOD
       const address = "0xFa4FC4ec2F81A4897743C5b4f45907c02ce06199";
       const addressInfo = await arkham.fetchAddress(address);
 
-      // Log the full response for debugging
       console.log("Address Info:", JSON.stringify(addressInfo, null, 2));
 
       expect(addressInfo).toBeDefined();
@@ -66,19 +56,16 @@ describe("ArkhamClient", () => {
     }, 30000);
   });
 
-  // Test fetchTransfers endpoint
   describe("fetchTransfers", () => {
     it('should return transfers for "dcfgod"', async () => {
       const transfers = await arkham.fetchTransfers("dcfgod", 0, 5);
 
-      // Log the full response for debugging
       console.log("Transfers:", JSON.stringify(transfers, null, 2));
 
       expect(transfers).toBeDefined();
       expect(Array.isArray(transfers.transfers)).toBe(true);
       expect(transfers.transfers.length).toBeLessThanOrEqual(5);
 
-      // Check transfer structure
       if (transfers.transfers.length > 0) {
         const transfer = transfers.transfers[0];
         expect(transfer.fromAddress).toBeDefined();
@@ -89,7 +76,6 @@ describe("ArkhamClient", () => {
     }, 30000);
   });
 
-  // Test error handling
   describe("error handling", () => {
     it("should handle invalid entity ID", async () => {
       await expect(arkham.fetchEntity("invalid-entity-id")).rejects.toThrow();

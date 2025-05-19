@@ -15,6 +15,7 @@ import { addressToTopic } from "./helpers";
 const transferTopic =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
+// TODO: Add more, make this multichain
 export const WHITELISTED_TOKENS = {
   USDT: "0xdac17f958d2ee523a2206206994597c13d831ec7", // Ethereum Mainnet USDT
   USDC: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // Ethereum Mainnet USDC
@@ -233,10 +234,7 @@ export class HyperSync {
       fromBlock: 0,
       transactions: [
         {
-          to: [
-            "0x28c6c06298d514db089934071355e5743bf21d60", // Binance hot wallet
-            "0x3f5ce5fbfe3e9af3971dd833d26ba9b5c936f0be", // Another Binance hot wallet,
-          ],
+          to: [address],
         },
       ],
       fieldSelection: {

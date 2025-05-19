@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { TransactionAnalyzer, TransactionTimingAnalysis } from "./analysis";
+import { TransactionAnalyzer } from "./analysis";
 import { ArkhamClient } from "./arkham";
 import inquirer from "inquirer";
 import { isAddress } from "ethers";
 import ora from "ora";
 import chalk from "chalk";
+import Table from "cli-table3";
 
 const program = new Command();
 
@@ -68,207 +69,288 @@ program
       }
 
       const answers2 = await inquirer.prompt({
-        type: "list",
+        type: "checkbox",
         name: "action",
         message: chalk.green("What do you want to do"),
+        default: ["timing", "related", "contracts"],
         choices: [
-          { name: chalk.green("Complete Analysis"), value: "complete" },
           { name: chalk.green("Timing Analysis"), value: "timing" },
           { name: chalk.green("Related Wallets"), value: "related" },
-          { name: chalk.gray("Exit"), value: "exit" },
+          { name: chalk.green("Related Wallet Funders"), value: "funding" },
+          { name: chalk.green("Interacted Contracts"), value: "contracts" },
         ],
       });
 
       const analyzer = new TransactionAnalyzer();
 
-      let timingAnalysis: TransactionTimingAnalysis;
-      switch (answers2.action) {
-        case "timing":
-          const timingSpinner = ora(
-            chalk.green("Analyzing transaction timing...")
-          ).start();
-          timingAnalysis = await analyzer.analyzeTransactionTiming(address);
-          timingSpinner.succeed(chalk.green("Timing analysis complete!"));
+      if (answers2.action.includes("timing")) {
+        console.log("\n");
+        const timingSpinner = ora(
+          chalk.green("Analyzing transaction timing...")
+        ).start();
+        const timingAnalysis = await analyzer.analyzeTransactionTiming(address);
+        timingSpinner.succeed(chalk.green("Timing analysis complete!"));
 
-          const formatted = analyzer.formatAnalysis(timingAnalysis);
-          console.log(chalk.bold(formatted.summary));
+        console.log(chalk.green("\nBasic Timing Analysis:"));
+        const formatted = analyzer.formatAnalysis(timingAnalysis);
+        console.log(chalk.bold(formatted.summary));
 
-          console.log(chalk.green("\nHourly Distribution:"));
-          console.table(formatted.hourlyDistribution);
+        console.log(chalk.green("\nHourly Distribution:"));
+        const hourlyTable = new Table({
+          head: ["Hour (UTC)", "Tx Count", "Percentage"],
+          style: { head: ["green"] },
+        });
+        Object.entries(formatted.hourlyDistribution).forEach(
+          ([index, { hour, count }]) => {
+            const percentage = (
+              (Number(count) / timingAnalysis.totalTransactions) *
+              100
+            ).toFixed(2);
+            hourlyTable.push([hour, count.toString(), `${percentage}%`]);
+          }
+        );
+        console.log(hourlyTable.toString());
 
-          console.log(chalk.green("\nDaily Distribution:"));
-          console.table(formatted.dailyDistribution);
+        console.log(chalk.green("\nDaily Distribution:"));
+        const dailyTable = new Table({
+          head: ["Day", "Tx Count", "Percentage"],
+          style: { head: ["green"] },
+        });
+        Object.entries(formatted.dailyDistribution).forEach(
+          ([index, { day, count }]) => {
+            const percentage = (
+              (Number(count) / timingAnalysis.totalTransactions) *
+              100
+            ).toFixed(2);
+            dailyTable.push([day, count.toString(), `${percentage}%`]);
+          }
+        );
+        console.log(dailyTable.toString());
 
-          console.log(chalk.green("\nMonthly Distribution:"));
-          console.table(formatted.monthlyDistribution);
+        console.log(chalk.green("\nMonthly Distribution:"));
+        const monthlyTable = new Table({
+          head: ["Month", "Tx Count", "Percentage"],
+          style: { head: ["green"] },
+        });
+        Object.entries(formatted.monthlyDistribution).forEach(
+          ([index, { month, count }]) => {
+            const percentage = (
+              (Number(count) / timingAnalysis.totalTransactions) *
+              100
+            ).toFixed(2);
+            monthlyTable.push([month, count.toString(), `${percentage}%`]);
+          }
+        );
+        console.log(monthlyTable.toString());
 
-          console.log(chalk.green("\nYearly Distribution:"));
-          console.table(formatted.yearlyDistribution);
-          break;
+        console.log(chalk.green("\nYearly Distribution:"));
+        const yearlyTable = new Table({
+          head: ["Year", "Tx Count", "Percentage"],
+          style: { head: ["green"] },
+        });
+        Object.entries(formatted.yearlyDistribution).forEach(
+          ([index, { year, count }]) => {
+            const percentage = (
+              (Number(count) / timingAnalysis.totalTransactions) *
+              100
+            ).toFixed(2);
+            yearlyTable.push([year, count.toString(), `${percentage}%`]);
+          }
+        );
+        console.log(yearlyTable.toString());
+      }
 
-        case "related":
-          const relatedSpinner = ora(
-            chalk.green("Analyzing related wallets...")
-          ).start();
-          const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
-            address,
-            relatedWalletsThreshold
-          );
-          relatedSpinner.succeed(
-            chalk.green("Related wallets analysis complete!")
-          );
+      console.log("\n");
 
-          console.log(chalk.green("Related Wallets:"));
-          console.table(wallets, ["address", "txCount", "entity", "label"]);
-          console.log(chalk.green("Most interacted contracts:"));
-          console.table(contracts, [
-            "address",
-            "txCount",
-            "entity",
-            "label",
-            "name",
-          ]);
-          break;
+      if (
+        answers2.action.includes("related") ||
+        answers2.action.includes("contracts")
+      ) {
+        const relatedSpinner = ora(
+          chalk.green("Analyzing related wallets and contracts interactions...")
+        ).start();
+        const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
+          address,
+          relatedWalletsThreshold
+        );
+        relatedSpinner.succeed(
+          chalk.green(
+            "Related wallets and contracts interactions analysis complete!"
+          )
+        );
 
-        case "complete":
-          const timingSpinner2 = ora(
-            chalk.green("Performing timing analysis...\n")
-          ).start();
+        if (answers2.action.includes("related")) {
+          // Case of related wallets + funding wallets of related wallets
+          if (answers2.action.includes("funding")) {
+            const fundingWalletsSpinner = ora(
+              chalk.green("\nAnalyzing funding wallets...")
+            ).start();
+            const fundingWallets = await analyzer.getFundingWallets(
+              wallets.map((wallet) => wallet.address)
+            );
 
-          timingAnalysis = await analyzer.analyzeTransactionTiming(address);
-          const formatted2 = analyzer.formatAnalysis(timingAnalysis);
+            fundingWalletsSpinner.succeed(
+              chalk.green("\nFunding wallets found!")
+            );
 
-          console.log("\n");
-          console.log(chalk.bold(formatted2.summary));
+            const walletsWithFunding = wallets.map((wallet, index) => ({
+              ...wallet,
+              address: wallet.address,
+              fundingWallet: fundingWallets.get(wallets[index].address)
+                ?.address,
+              fundingWalletEntity: `${
+                fundingWallets.get(wallets[index].address)?.entity
+              } (${fundingWallets.get(wallets[index].address)?.label})`,
+            }));
 
-          console.log(chalk.green("\nHourly Distribution:"));
-          console.table(formatted2.hourlyDistribution);
+            console.log(chalk.green("\nRelated Wallets:"));
+            const walletsFundingTable = new Table({
+              head: [
+                "Address",
+                "Tx Count",
+                "Entity",
+                "Label",
+                "Funding Wallet",
+                "Funding Wallet Entity",
+              ],
+              style: { head: ["green"] },
+            });
+            walletsWithFunding.forEach((wallet) => {
+              walletsFundingTable.push([
+                wallet.address,
+                wallet.txCount,
+                wallet.entity,
+                wallet.label,
+                wallet.fundingWallet || "",
+                wallet.fundingWalletEntity,
+              ]);
+            });
+            console.log(walletsFundingTable.toString());
 
-          console.log(chalk.green("\nDaily Distribution:"));
-          console.table(formatted2.dailyDistribution);
+            // Case of related wallets only
+          } else {
+            console.log(chalk.green("\nRelated Wallets:"));
+            const walletsTable = new Table({
+              head: ["Address", "Tx Count", "Entity", "Label"],
+              style: { head: ["green"] },
+            });
+            wallets.forEach((wallet) => {
+              walletsTable.push([
+                wallet.address,
+                wallet.txCount,
+                wallet.entity,
+                wallet.label,
+              ]);
+            });
+            console.log(walletsTable.toString());
+          }
+        }
 
-          console.log(chalk.green("\nMonthly Distribution:"));
-          console.table(formatted2.monthlyDistribution);
-
-          console.log(chalk.green("\nYearly Distribution:"));
-          console.table(formatted2.yearlyDistribution);
-
-          timingSpinner2.succeed(chalk.green("Timing analysis complete!\n"));
-
-          const relatedSpinner2 = ora(
-            chalk.green("Analyzing related wallets...\n")
-          ).start();
-
-          const { wallets: wallets2, contracts: contracts2 } =
-            await analyzer.analyzeRelatedWallets(address);
-
-          relatedSpinner2.succeed(
-            chalk.green("Related wallets analysis complete!\n")
-          );
-
-          const fundingSpinner = ora(
-            chalk.green("Finding funding wallets...\n")
-          ).start();
-          const fundingWallets = await analyzer.getFundingWallets(
-            wallets2.map((wallet) => wallet.address)
-          );
-
-          fundingSpinner.succeed(chalk.green("Funding wallets found!\n"));
-
-          const walletsWithFunding = wallets2.map((wallet, index) => ({
-            ...wallet,
-            fundingWallet: fundingWallets.get(wallets2[index].address)?.address,
-            fundingWalletEntity: `${
-              fundingWallets.get(wallets2[index].address)?.entity
-            } (${fundingWallets.get(wallets2[index].address)?.label})`,
-          }));
-
-          console.log(chalk.green("Related Wallets:"));
-          console.table(walletsWithFunding, [
-            "address",
-            "txCount",
-            "entity",
-            "label",
-            "fundingWallet",
-            "fundingWalletEntity",
-          ]);
-          console.log(chalk.green("Most interacted contracts:"));
-          console.table(contracts2, [
-            "address",
-            "txCount",
-            "entity",
-            "label",
-            "name",
-          ]);
-
-          // completeSpinner.succeed(chalk.green("Complete analysis finished!"));
-          break;
+        if (answers2.action.includes("contracts")) {
+          console.log(chalk.green("\nMost interacted contracts:"));
+          const contractsTableCmd = new Table({
+            head: ["Address", "Tx Count", "Entity", "Label", "ContractName"],
+            style: { head: ["green"] },
+          });
+          contracts.forEach((contract) => {
+            contractsTableCmd.push([
+              contract.address,
+              contract.txCount,
+              contract.entity,
+              contract.label,
+              contract.name,
+            ]);
+          });
+          console.log(contractsTableCmd.toString());
+        }
       }
     }
   );
 
-program
-  .command("transaction-timing")
-  .description("Analyze transaction timing patterns for an address")
-  .argument("<address>", "The address to analyze")
-  .action(async (address: string) => {
-    const spinner = ora(chalk.green("Analyzing transaction timing...")).start();
-    try {
-      const analyzer = new TransactionAnalyzer();
-      const analysis = await analyzer.analyzeTransactionTiming(address);
-      const formatted = analyzer.formatAnalysis(analysis);
+// program
+//   .command("transaction-timing")
+//   .description("Analyze transaction timing patterns for an address")
+//   .argument("<address>", "The address to analyze")
+//   .action(async (address: string) => {
+//     const spinner = ora(chalk.green("Analyzing transaction timing...")).start();
+//     try {
+//       const analyzer = new TransactionAnalyzer();
+//       const analysis = await analyzer.analyzeTransactionTiming(address);
+//       const formatted = analyzer.formatAnalysis(analysis);
 
-      spinner.succeed(chalk.green("Analysis complete!"));
+//       spinner.succeed(chalk.green("Analysis complete!"));
 
-      console.log(chalk.bold(formatted.summary));
+//       console.log(chalk.bold(formatted.summary));
 
-      console.log(chalk.green("\nHourly Distribution:"));
-      console.table(formatted.hourlyDistribution);
+//       console.log(chalk.green("\nHourly Distribution:"));
+//       console.table(formatted.hourlyDistribution);
 
-      console.log(chalk.green("\nDaily Distribution:"));
-      console.table(formatted.dailyDistribution);
+//       console.log(chalk.green("\nDaily Distribution:"));
+//       console.table(formatted.dailyDistribution);
 
-      console.log(chalk.green("\nMonthly Distribution:"));
-      console.table(formatted.monthlyDistribution);
+//       console.log(chalk.green("\nMonthly Distribution:"));
+//       console.table(formatted.monthlyDistribution);
 
-      console.log(chalk.green("\nYearly Distribution:"));
-      console.table(formatted.yearlyDistribution);
-    } catch (error) {
-      spinner.fail(chalk.red("Analysis failed!"));
-      console.error(chalk.red("Error:"), error);
-      process.exit(1);
-    }
-  });
+//       console.log(chalk.green("\nYearly Distribution:"));
+//       console.table(formatted.yearlyDistribution);
 
-program
-  .command("related-wallets")
-  .description("Analyze related wallets for an address")
-  .argument("<address>", "The address to analyze")
-  .action(async (address: string) => {
-    const spinner = ora(chalk.green("Analyzing related wallets...")).start();
-    try {
-      const analyzer = new TransactionAnalyzer();
-      const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
-        address
-      );
-      spinner.succeed(chalk.green("Analysis complete!"));
+//       console.log(chalk.green("\nEtherscan Link:"));
+//       console.log(address);
+//     } catch (error) {
+//       spinner.fail(chalk.red("Analysis failed!"));
+//       console.error(chalk.red("Error:"), error);
+//       process.exit(1);
+//     }
+//   });
 
-      console.log(chalk.green("Related Wallets:"));
-      console.table(wallets, ["address", "txCount", "entity", "label"]);
-      console.log(chalk.green("Most interacted contracts:"));
-      console.table(contracts, [
-        "address",
-        "txCount",
-        "entity",
-        "label",
-        "name",
-      ]);
-    } catch (error) {
-      spinner.fail(chalk.red("Analysis failed!"));
-      console.error(chalk.red("Error:"), error);
-      process.exit(1);
-    }
-  });
+// program
+//   .command("related-wallets")
+//   .description("Analyze related wallets for an address")
+//   .argument("<address>", "The address to analyze")
+//   .action(async (address: string) => {
+//     const spinner = ora(chalk.green("Analyzing related wallets...")).start();
+//     try {
+//       const analyzer = new TransactionAnalyzer();
+//       const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
+//         address
+//       );
+//       spinner.succeed(chalk.green("Analysis complete!"));
+
+//       console.log(chalk.green("Related Wallets:"));
+//       const walletsTableCmd2 = new Table({
+//         head: ["Address", "txCount", "entity", "label"],
+//         style: { head: ["green"] },
+//       });
+//       wallets.forEach((wallet) => {
+//         walletsTableCmd2.push([
+//           wallet.address,
+//           wallet.txCount,
+//           wallet.entity,
+//           wallet.label,
+//         ]);
+//       });
+//       console.log(walletsTableCmd2.toString());
+//       console.log(chalk.green("Most interacted contracts:"));
+//       const contractsTableCmd2 = new Table({
+//         head: ["Address", "txCount", "entity", "label", "name"],
+//         style: { head: ["green"] },
+//       });
+//       contracts.forEach((contract) => {
+//         contractsTableCmd2.push([
+//           contract.address,
+//           contract.txCount,
+//           contract.entity,
+//           contract.label,
+//           contract.name,
+//         ]);
+//       });
+//       console.log(contractsTableCmd2.toString());
+//     } catch (error) {
+//       spinner.fail(chalk.red("Analysis failed!"));
+//       console.error(chalk.red("Error:"), error);
+//       process.exit(1);
+//     }
+//   });
 
 process.on("unhandledRejection", (error) => {
   console.error(chalk.red("Unhandled promise rejection:"), error);

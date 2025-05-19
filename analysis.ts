@@ -203,7 +203,6 @@ export class TransactionAnalyzer {
 
     wallets = wallets.sort((a, b) => b.txCount - a.txCount);
 
-    // filter out 0x0000000000000000000000000000000000000000
     wallets = wallets.filter(
       (wallet) =>
         wallet.address !== "0x0000000000000000000000000000000000000000"
@@ -307,7 +306,6 @@ export class TransactionAnalyzer {
       address,
     ]);
 
-    // Create block number to timestamp mapping
     const blockTimestamps = new Map<number, number>();
     blocks.forEach((block) => {
       if (block.timestamp && block.number) {
@@ -315,7 +313,6 @@ export class TransactionAnalyzer {
       }
     });
 
-    // Initialize distributions
     const hourlyDistribution: { [hour: number]: number } = {};
     const dailyDistribution: { [day: number]: number } = {};
     const monthlyDistribution: { [month: number]: number } = {};
@@ -323,7 +320,6 @@ export class TransactionAnalyzer {
 
     let utcDates: Date[] = [];
 
-    // Process each transaction
     transactions.forEach((tx) => {
       if (tx.blockNumber) {
         const timestamp = blockTimestamps.get(tx.blockNumber);
@@ -352,7 +348,6 @@ export class TransactionAnalyzer {
       }
     });
 
-    // Calculate statistics
     const totalTransactions = transactions.length;
     const daysWithTransactions = Object.keys(dailyDistribution).length;
     const averageTransactionsPerDay =
@@ -430,18 +425,14 @@ export class TransactionAnalyzer {
 
     if (analysis.inferredTimezone) {
       const { region, confidence } = analysis.inferredTimezone;
-      timezoneInfo = `
-Inferred Timezone:
-- Region: ${region} (${(confidence * 100).toFixed(1)}% confidence)
-`;
+      timezoneInfo = `- Region: ${region} (${(confidence * 100).toFixed(
+        1
+      )}% confidence)`;
     }
 
     const summary = `
-Transaction Timing Analysis:
----------------------------
 Total Transactions: ${analysis.totalTransactions}
 Average Transactions per day: ${analysis.averageTransactionsPerDay.toFixed(2)}
-
 Busiest Periods:
 - Hour: ${analysis.busiestHour.hour}:00 UTC (${
       analysis.busiestHour.count
@@ -455,15 +446,15 @@ Busiest Periods:
 - Year: ${analysis.busiestYear.year} (${
       analysis.busiestYear.count
     } transactions)
-- 6-Hour Window: ${format6HourWindow(analysis.busiest6Hour.startHour)} (${
-      analysis.busiest6Hour.count
-    } transactions)
-- Least Active 6-Hour Window: ${format6HourWindow(
+Timezone Analysis:
+- "Work" (Most active) Window: ${format6HourWindow(
+      analysis.busiest6Hour.startHour
+    )} (${analysis.busiest6Hour.count} transactions)
+- "Sleep" (Least active) Window: ${format6HourWindow(
       analysis.leastBusy6Hour.startHour
     )} (${analysis.leastBusy6Hour.count} transactions)
 ${timezoneInfo}`;
 
-    // Format distributions for console.table
     const hourlyDistribution = Object.entries(analysis.hourlyDistribution)
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([hour, count]) => ({

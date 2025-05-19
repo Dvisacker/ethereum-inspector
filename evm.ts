@@ -1,4 +1,4 @@
-import { AlchemyProvider, ethers } from "ethers";
+import { ethers } from "ethers";
 import { HyperSync } from "./hypersync";
 import { EtherscanClient } from "./etherscan";
 import dotenv from "dotenv";
