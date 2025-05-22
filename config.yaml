@@ -1,0 +1,3 @@
+outputFormat: table
+maxRelatedContracts: 10
+relatedWalletsThreshold: 1

@@ -7,6 +7,7 @@ import { isAddress } from "ethers";
 import ora from "ora";
 import chalk from "chalk";
 import Table from "cli-table3";
+import { config } from "./config";
 
 const program = new Command();
 
@@ -17,13 +18,14 @@ program
   .argument("<search>", "The search query to fetch entities for")
   .option(
     "-t, --related-wallets-threshold <type>",
-    "Threshold for related wallets",
-    "3"
+    "Threshold for related wallets"
   )
   .action(
     async (search: string, options: { relatedWalletsThreshold: string }) => {
-      const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
-      const relatedWalletsThreshold = parseInt(options.relatedWalletsThreshold);
+      const arkham = new ArkhamClient(config.get("arkhamCookie"));
+      if (options.relatedWalletsThreshold) {
+        config.set("relatedWalletsThreshold", +options.relatedWalletsThreshold);
+      }
 
       let address: string;
 
@@ -97,7 +99,7 @@ program
           style: { head: ["green"] },
         });
         Object.entries(formatted.hourlyDistribution).forEach(
-          ([index, { hour, count }]) => {
+          ([_, { hour, count }]) => {
             const percentage = (
               (Number(count) / timingAnalysis.totalTransactions) *
               100
@@ -166,8 +168,7 @@ program
           chalk.green("Analyzing related wallets and contracts interactions...")
         ).start();
         const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
-          address,
-          relatedWalletsThreshold
+          address
         );
         relatedSpinner.succeed(
           chalk.green(
@@ -263,91 +264,6 @@ program
       }
     }
   );
-
-// program
-//   .command("transaction-timing")
-//   .description("Analyze transaction timing patterns for an address")
-//   .argument("<address>", "The address to analyze")
-//   .action(async (address: string) => {
-//     const spinner = ora(chalk.green("Analyzing transaction timing...")).start();
-//     try {
-//       const analyzer = new TransactionAnalyzer();
-//       const analysis = await analyzer.analyzeTransactionTiming(address);
-//       const formatted = analyzer.formatAnalysis(analysis);
-
-//       spinner.succeed(chalk.green("Analysis complete!"));
-
-//       console.log(chalk.bold(formatted.summary));
-
-//       console.log(chalk.green("\nHourly Distribution:"));
-//       console.table(formatted.hourlyDistribution);
-
-//       console.log(chalk.green("\nDaily Distribution:"));
-//       console.table(formatted.dailyDistribution);
-
-//       console.log(chalk.green("\nMonthly Distribution:"));
-//       console.table(formatted.monthlyDistribution);
-
-//       console.log(chalk.green("\nYearly Distribution:"));
-//       console.table(formatted.yearlyDistribution);
-
-//       console.log(chalk.green("\nEtherscan Link:"));
-//       console.log(address);
-//     } catch (error) {
-//       spinner.fail(chalk.red("Analysis failed!"));
-//       console.error(chalk.red("Error:"), error);
-//       process.exit(1);
-//     }
-//   });
-
-// program
-//   .command("related-wallets")
-//   .description("Analyze related wallets for an address")
-//   .argument("<address>", "The address to analyze")
-//   .action(async (address: string) => {
-//     const spinner = ora(chalk.green("Analyzing related wallets...")).start();
-//     try {
-//       const analyzer = new TransactionAnalyzer();
-//       const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
-//         address
-//       );
-//       spinner.succeed(chalk.green("Analysis complete!"));
-
-//       console.log(chalk.green("Related Wallets:"));
-//       const walletsTableCmd2 = new Table({
-//         head: ["Address", "txCount", "entity", "label"],
-//         style: { head: ["green"] },
-//       });
-//       wallets.forEach((wallet) => {
-//         walletsTableCmd2.push([
-//           wallet.address,
-//           wallet.txCount,
-//           wallet.entity,
-//           wallet.label,
-//         ]);
-//       });
-//       console.log(walletsTableCmd2.toString());
-//       console.log(chalk.green("Most interacted contracts:"));
-//       const contractsTableCmd2 = new Table({
-//         head: ["Address", "txCount", "entity", "label", "name"],
-//         style: { head: ["green"] },
-//       });
-//       contracts.forEach((contract) => {
-//         contractsTableCmd2.push([
-//           contract.address,
-//           contract.txCount,
-//           contract.entity,
-//           contract.label,
-//           contract.name,
-//         ]);
-//       });
-//       console.log(contractsTableCmd2.toString());
-//     } catch (error) {
-//       spinner.fail(chalk.red("Analysis failed!"));
-//       console.error(chalk.red("Error:"), error);
-//       process.exit(1);
-//     }
-//   });
 
 process.on("unhandledRejection", (error) => {
   console.error(chalk.red("Unhandled promise rejection:"), error);

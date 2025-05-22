@@ -6,6 +6,7 @@ import { findBusiestPeriod } from "./time";
 import { ArkhamClient } from "./arkham";
 import { EtherscanClient } from "./etherscan";
 import { safePromise } from "./helpers";
+import { config } from "./config";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -47,8 +48,8 @@ export class TransactionAnalyzer {
   private arkham: ArkhamClient;
   constructor() {
     this.hyperSync = new HyperSync();
-    this.etherscan = new EtherscanClient(process.env.ETHERSCAN_API_KEY || "");
-    this.arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
+    this.etherscan = new EtherscanClient(config.get("etherscanApiKey"));
+    this.arkham = new ArkhamClient(config.get("arkhamCookie"));
   }
 
   /**
@@ -60,7 +61,6 @@ export class TransactionAnalyzer {
    */
   async getRelatedWallets(
     address: string,
-    threshold?: number,
     fromBlock?: number,
     toBlock?: number
   ): Promise<{
@@ -165,7 +165,7 @@ export class TransactionAnalyzer {
     const contracts: { address: string; txCount: number }[] = [];
     for (const address of relatedAddresses) {
       const txCount = txByAddressCount.get(address) || 0;
-      if (txCount < (threshold || 1)) continue;
+      if (txCount < config.get("relatedWalletsThreshold")) continue;
 
       const isContract = await isSmartContract(address);
       if (isContract) {
@@ -178,10 +178,7 @@ export class TransactionAnalyzer {
     return { eoas, contracts };
   }
 
-  async analyzeRelatedWallets(
-    address: string,
-    threshold?: number
-  ): Promise<{
+  async analyzeRelatedWallets(address: string): Promise<{
     wallets: {
       address: string;
       txCount: number;
@@ -196,10 +193,7 @@ export class TransactionAnalyzer {
       name: string;
     }[];
   }> {
-    let { eoas: wallets, contracts } = await this.getRelatedWallets(
-      address,
-      threshold
-    );
+    let { eoas: wallets, contracts } = await this.getRelatedWallets(address);
 
     if (wallets.length === 0 && contracts.length === 0) {
       console.log("No related wallets found");
@@ -227,8 +221,11 @@ export class TransactionAnalyzer {
       label: walletResponses[index]?.arkhamLabel?.name || "Unknown",
     }));
 
-    // take top 10 contracts
-    contracts = contracts.sort((a, b) => b.txCount - a.txCount).slice(0, 10);
+    // take top N contracts based on config
+    const maxContracts = config.get("maxRelatedContracts");
+    contracts = contracts
+      .sort((a, b) => b.txCount - a.txCount)
+      .slice(0, maxContracts);
 
     // Fetch all contract info in parallel with error handling
     const [contractResponses, contractNames] = await Promise.all([
