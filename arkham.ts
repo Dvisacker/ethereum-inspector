@@ -67,12 +67,26 @@ export interface SearchEntityResponse {
 export class ArkhamClient {
   private readonly baseUrl = "https://api.arkm.com";
   private readonly cookie: string;
+  private lastRequestTime: number = 0;
+  private inFlightRequests: number = 0;
+  private requestQueue: Array<() => Promise<any>> = [];
+  private isProcessingQueue: boolean = false;
+  private readonly minTimeBetweenRequests: number;
+  private readonly maxConcurrentRequests: number;
 
-  constructor(cookie: string) {
+  constructor(
+    cookie: string,
+    options: {
+      minTimeBetweenRequests?: number;
+      maxConcurrentRequests?: number;
+    } = {}
+  ) {
     if (!cookie) {
       throw new Error("ARKHAM_COOKIE is required");
     }
     this.cookie = cookie;
+    this.minTimeBetweenRequests = options.minTimeBetweenRequests || 20; // Default 20ms between requests
+    this.maxConcurrentRequests = options.maxConcurrentRequests || 5; // Default 5 concurrent requests
   }
 
   private getHeaders() {
@@ -92,75 +106,142 @@ export class ArkhamClient {
     };
   }
 
+  private async processQueue() {
+    if (
+      this.isProcessingQueue ||
+      this.requestQueue.length === 0 ||
+      this.inFlightRequests >= this.maxConcurrentRequests
+    ) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+
+    while (
+      this.requestQueue.length > 0 &&
+      this.inFlightRequests < this.maxConcurrentRequests
+    ) {
+      const now = Date.now();
+      const timeSinceLastRequest = now - this.lastRequestTime;
+      const waitTime = Math.max(
+        0,
+        this.minTimeBetweenRequests - timeSinceLastRequest
+      );
+
+      if (waitTime > 0) {
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+      }
+
+      const nextRequest = this.requestQueue.shift();
+      if (nextRequest) {
+        this.inFlightRequests++;
+        this.lastRequestTime = Date.now();
+
+        try {
+          await nextRequest();
+        } finally {
+          this.inFlightRequests--;
+          this.processQueue();
+        }
+      }
+    }
+
+    this.isProcessingQueue = false;
+  }
+
+  private async makeRequest<T>(requestFn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const executeRequest = async () => {
+        try {
+          const result = await requestFn();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      this.requestQueue.push(executeRequest);
+      this.processQueue();
+    });
+  }
+
   async fetchTransfers(
     entity: string,
     offset: number = 0,
     limit: number = 100
   ): Promise<TransferResponse> {
-    const response = await fetch(
-      `${this.baseUrl}/transfers?base=${entity}&flow=all&usdGte=1&sortKey=time&sortDir=desc&limit=${limit}&offset=${offset}`,
-      {
-        headers: this.getHeaders(),
-        referrerPolicy: "strict-origin-when-cross-origin",
-        method: "GET",
+    return this.makeRequest(async () => {
+      const response = await fetch(
+        `${this.baseUrl}/transfers?base=${entity}&flow=all&usdGte=1&sortKey=time&sortDir=desc&limit=${limit}&offset=${offset}`,
+        {
+          headers: this.getHeaders(),
+          referrerPolicy: "strict-origin-when-cross-origin",
+          method: "GET",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch transfers: ${response.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch transfers: ${response.statusText}`);
-    }
-
-    return response.json();
+      return response.json();
+    });
   }
 
   async fetchEntity(entityId: string): Promise<EntityResponse> {
-    const response = await fetch(
-      `${this.baseUrl}/intelligence/entity/${entityId}`,
-      {
-        headers: this.getHeaders(),
-        referrerPolicy: "strict-origin-when-cross-origin",
-        method: "GET",
+    return this.makeRequest(async () => {
+      const response = await fetch(
+        `${this.baseUrl}/intelligence/entity/${entityId}`,
+        {
+          headers: this.getHeaders(),
+          referrerPolicy: "strict-origin-when-cross-origin",
+          method: "GET",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch entity: ${response.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch entity: ${response.statusText}`);
-    }
-
-    return response.json();
+      return response.json();
+    });
   }
 
   async fetchAddress(address: string): Promise<AddressResponse> {
-    const response = await fetch(
-      `${this.baseUrl}/intelligence/address/${address}`,
-      {
-        headers: this.getHeaders(),
-        referrerPolicy: "strict-origin-when-cross-origin",
-        method: "GET",
+    return this.makeRequest(async () => {
+      const response = await fetch(
+        `${this.baseUrl}/intelligence/address/${address}`,
+        {
+          headers: this.getHeaders(),
+          referrerPolicy: "strict-origin-when-cross-origin",
+          method: "GET",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch entity: ${response.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch entity: ${response.statusText}`);
-    }
-
-    return response.json();
+      return response.json();
+    });
   }
 
   async searchEntities(query: string): Promise<SearchEntityResponse> {
-    const response = await fetch(
-      `${this.baseUrl}/intelligence/search?query=${query}`,
-      {
-        headers: this.getHeaders(),
-        referrerPolicy: "strict-origin-when-cross-origin",
-        method: "GET",
+    return this.makeRequest(async () => {
+      const response = await fetch(
+        `${this.baseUrl}/intelligence/search?query=${query}`,
+        {
+          headers: this.getHeaders(),
+          referrerPolicy: "strict-origin-when-cross-origin",
+          method: "GET",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to search entities: ${response.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Failed to search entities: ${response.statusText}`);
-    }
-
-    return response.json();
+      return response.json();
+    });
   }
 }
