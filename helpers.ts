@@ -37,3 +37,71 @@ export function createArkhamLink(address: string): string {
     `https://app.arkhamintelligence.com/explorer/address/${address}`
   );
 }
+
+export async function safePromise<T>(promise: Promise<T>): Promise<T | null> {
+  try {
+    return await promise;
+  } catch (error) {
+    console.log("API call failed:", error);
+    return null;
+  }
+}
+
+type AsyncFunction<T> = (...args: any[]) => Promise<T>;
+
+export function createThrottledFunction<T>(
+  fn: AsyncFunction<T>,
+  options: {
+    minTimeBetweenCalls?: number;
+    maxConcurrent?: number;
+  } = {}
+): AsyncFunction<T> {
+  const {
+    minTimeBetweenCalls = 20, // Default 20ms second between calls
+    maxConcurrent = 5, // Default max 5 concurrent calls
+  } = options;
+
+  let lastCallTime = 0;
+  let inFlightCalls = 0;
+  const queue: Array<() => Promise<T>> = [];
+
+  const processQueue = async () => {
+    if (queue.length === 0 || inFlightCalls >= maxConcurrent) return;
+
+    const now = Date.now();
+    const timeSinceLastCall = now - lastCallTime;
+    const waitTime = Math.max(0, minTimeBetweenCalls - timeSinceLastCall);
+
+    if (waitTime > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+
+    const nextCall = queue.shift();
+    if (nextCall) {
+      inFlightCalls++;
+      try {
+        await nextCall();
+      } finally {
+        inFlightCalls--;
+        lastCallTime = Date.now();
+        processQueue();
+      }
+    }
+  };
+
+  return async (...args: any[]): Promise<T> => {
+    return new Promise((resolve, reject) => {
+      const executeCall = async () => {
+        try {
+          const result = await fn(...args);
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      queue.push(executeCall as () => Promise<T>);
+      processQueue();
+    });
+  };
+}

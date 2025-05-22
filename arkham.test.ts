@@ -1,9 +1,16 @@
 import { ArkhamClient } from "./arkham";
 import dotenv from "dotenv";
+import { performance } from "perf_hooks";
 
 dotenv.config();
 
-const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
+const ARKHAM_COOKIE = process.env.ARKHAM_COOKIE;
+
+if (!ARKHAM_COOKIE) {
+  throw new Error("ARKHAM_COOKIE is not set");
+}
+
+const arkham = new ArkhamClient(ARKHAM_COOKIE);
 
 describe("ArkhamClient", () => {
   describe("searchEntities", () => {
@@ -21,7 +28,7 @@ describe("ArkhamClient", () => {
       expect(dcfgod).toBeDefined();
       expect(dcfgod?.name).toBe("DCF GOD");
       expect(dcfgod?.type).toBe("individual");
-    }, 30000);
+    }, 2000);
   });
 
   // Test fetchEntity endpoint
@@ -37,7 +44,7 @@ describe("ArkhamClient", () => {
       expect(entity.type).toBe("individual");
       expect(Array.isArray(entity.populatedTags)).toBe(true);
       expect(entity.addresses).toBeDefined();
-    }, 30000);
+    }, 2000);
   });
 
   describe("fetchAddress", () => {
@@ -84,5 +91,85 @@ describe("ArkhamClient", () => {
     it("should handle invalid address", async () => {
       await expect(arkham.fetchAddress("0xinvalid")).rejects.toThrow();
     }, 30000);
+  });
+
+  describe("throttling", () => {
+    it("should respect rate limiting and concurrency limits", async () => {
+      const client = new ArkhamClient(ARKHAM_COOKIE, {
+        minTimeBetweenRequests: 1000, // 1 request per second
+        maxConcurrentRequests: 2,
+      });
+
+      // Test addresses
+      const addresses = [
+        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
+        "0x6B175474E89094C44Da98b954EedeAC495271d0F", // DAI
+        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WETH
+        "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", // UNI
+      ];
+
+      const startTime = performance.now();
+
+      // Make parallel requests for address info
+      const results = await Promise.all(
+        addresses.map((address) => client.fetchAddress(address))
+      );
+
+      const endTime = performance.now();
+      const totalTime = endTime - startTime;
+
+      // Verify results
+      expect(results).toHaveLength(addresses.length);
+      expect(results.every((response) => response.address)).toBe(true);
+
+      // Verify timing
+      // With 4 addresses and 2 concurrent requests, we expect 2 batches
+      // Each batch should take at least 1000ms (minTimeBetweenRequests)
+      // So total time should be at least 2000ms
+      expect(totalTime).toBeGreaterThanOrEqual(2000);
+
+      console.log("Arkham throttling test results:", {
+        totalTime: `${totalTime.toFixed(2)}ms`,
+        results: results.map((r) => ({
+          address: r.address,
+          entity: r.arkhamEntity?.name,
+          label: r.arkhamLabel?.name,
+        })),
+      });
+    }, 30000); // 30 second timeout
+
+    it("should handle mixed API calls with throttling", async () => {
+      const client = new ArkhamClient(ARKHAM_COOKIE, {
+        minTimeBetweenRequests: 1000,
+        maxConcurrentRequests: 2,
+      });
+
+      const entityId = "dcfgod";
+      const address = "0xFa4FC4ec2F81A4897743C5b4f45907c02ce06199";
+
+      const startTime = performance.now();
+
+      // Make parallel requests for different entity info
+      const [entityInfo, addressInfo, transfers] = await Promise.all([
+        client.fetchEntity(entityId),
+        client.fetchAddress(address),
+        client.fetchTransfers(entityId, 0, 5),
+      ]);
+
+      const endTime = performance.now();
+      const totalTime = endTime - startTime;
+
+      // Verify results
+      expect(entityInfo.id).toBe(entityId);
+      expect(addressInfo.address).toBe(address);
+      expect(Array.isArray(transfers.transfers)).toBe(true);
+
+      console.log("Arkham mixed API test results:", {
+        totalTime: `${totalTime.toFixed(2)}ms`,
+        entityName: entityInfo.name,
+        addressLabel: addressInfo.arkhamLabel?.name,
+        transferCount: transfers.transfers.length,
+      });
+    }, 30000); // 30 second timeout
   });
 });

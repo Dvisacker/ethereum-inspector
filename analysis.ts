@@ -1,9 +1,11 @@
 import { ETHER, HyperSync } from "./hypersync";
-import { getContractName, isSmartContract } from "./evm";
+import { isSmartContract } from "./evm";
 import { Transaction } from "@envio-dev/hypersync-client";
 import { find6HourTimeframes, inferTimezoneRegion } from "./time";
 import { findBusiestPeriod } from "./time";
 import { ArkhamClient } from "./arkham";
+import { EtherscanClient } from "./etherscan";
+import { safePromise } from "./helpers";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -41,9 +43,12 @@ export interface RelatedWalletTx {
 
 export class TransactionAnalyzer {
   private hyperSync: HyperSync;
-
+  private etherscan: EtherscanClient;
+  private arkham: ArkhamClient;
   constructor() {
     this.hyperSync = new HyperSync();
+    this.etherscan = new EtherscanClient(process.env.ETHERSCAN_API_KEY || "");
+    this.arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
   }
 
   /**
@@ -208,45 +213,44 @@ export class TransactionAnalyzer {
         wallet.address !== "0x0000000000000000000000000000000000000000"
     );
 
-    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
-    const walletInfos: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-    }[] = [];
+    // Fetch all wallet info in parallel with error handling
+    const walletResponses = await Promise.all(
+      wallets.map((wallet) =>
+        safePromise(this.arkham.fetchAddress(wallet.address))
+      )
+    );
 
-    for (const wallet of wallets) {
-      const response = await arkham.fetchAddress(wallet.address);
-      walletInfos.push({
-        address: wallet.address,
-        txCount: wallet.txCount,
-        entity: response.arkhamEntity?.name || "Unknown",
-        label: response.arkhamLabel?.name || "Unknown",
-      });
-    }
+    const walletInfos = wallets.map((wallet, index) => ({
+      address: wallet.address,
+      txCount: wallet.txCount,
+      entity: walletResponses[index]?.arkhamEntity?.name || "Unknown",
+      label: walletResponses[index]?.arkhamLabel?.name || "Unknown",
+    }));
 
     // take top 10 contracts
     contracts = contracts.sort((a, b) => b.txCount - a.txCount).slice(0, 10);
-    const contractInfos: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-      name: string;
-    }[] = [];
 
-    for (const contract of contracts) {
-      const response = await arkham.fetchAddress(contract.address);
-      const name = await getContractName(contract.address, 1);
-      contractInfos.push({
-        address: contract.address,
-        txCount: contract.txCount,
-        entity: response.arkhamEntity?.name || "Unknown",
-        label: response.arkhamLabel?.name || "Unknown",
-        name: name || "Unknown",
-      });
-    }
+    // Fetch all contract info in parallel with error handling
+    const [contractResponses, contractNames] = await Promise.all([
+      Promise.all(
+        contracts.map((contract) =>
+          safePromise(this.arkham.fetchAddress(contract.address))
+        )
+      ),
+      Promise.all(
+        contracts.map((contract) =>
+          safePromise(this.etherscan.getContractName(contract.address, 1))
+        )
+      ),
+    ]);
+
+    const contractInfos = contracts.map((contract, index) => ({
+      address: contract.address,
+      txCount: contract.txCount,
+      entity: contractResponses[index]?.arkhamEntity?.name || "Unknown",
+      label: contractResponses[index]?.arkhamLabel?.name || "Unknown",
+      name: contractNames[index] || "Unknown",
+    }));
 
     return {
       wallets: walletInfos,
@@ -272,22 +276,41 @@ export class TransactionAnalyzer {
         label: string;
       }
     >();
-    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
 
-    for (const address of addresses) {
-      const tx = await this.hyperSync.getAddressFirstReceivedTransaction(
-        address
-      );
-      const { arkhamEntity, arkhamLabel } = await arkham.fetchAddress(address);
+    // Fetch all first transactions and address info in parallel with error handling
+    const [firstTransactions, addressInfos] = await Promise.all([
+      Promise.all(
+        addresses.map((address) =>
+          safePromise(
+            this.hyperSync.getAddressFirstReceivedTransaction(address)
+          )
+        )
+      ),
+      Promise.all(
+        addresses.map((address) =>
+          safePromise(this.arkham.fetchAddress(address))
+        )
+      ),
+    ]);
 
-      if (tx.transactions.length > 0) {
-        if (tx.transactions[0].from) {
-          fundingWallets.set(address, {
-            address: tx.transactions[0].from,
-            entity: arkhamEntity?.name || "Unknown",
-            label: arkhamLabel?.name || "Unknown",
-          });
-        }
+    // Process results
+    for (let i = 0; i < addresses.length; i++) {
+      const address = addresses[i];
+      const tx = firstTransactions[i];
+      const addressInfo = addressInfos[i];
+
+      if (
+        tx &&
+        tx.transactions &&
+        tx.transactions.length > 0 &&
+        tx.transactions[0].from &&
+        addressInfo
+      ) {
+        fundingWallets.set(address, {
+          address: tx.transactions[0].from,
+          entity: addressInfo.arkhamEntity?.name || "Unknown",
+          label: addressInfo.arkhamLabel?.name || "Unknown",
+        });
       }
     }
 

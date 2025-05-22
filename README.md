@@ -102,3 +102,4 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
  - Some arkham MEV bot labels seem to be wrong (ex 0x0f4a1d7fdf4890be35e71f3e0bbc4a0ec377eca3)
  - Some contracts (Gnosis Safe, Rabby Fee Wallet? and other smart wallets) should probably be included in the "EOA category" and not in the contract interaction category.
  - Middle-east (Dubai) time maybe too close to both Asia/Europe to be distinguishable in timing analysis.
+ - Some functionality should be made multichain. For example when fetching contract names, we are currently only fetching from etherscan mainnet.
