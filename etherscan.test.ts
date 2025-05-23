@@ -89,6 +89,16 @@ describe("EtherscanClient", () => {
           expectedProxyType: "TransparentUpgradeableProxy",
           expectedImplementation: "DlnSource",
         },
+        {
+          address: "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee", // UUPS proxy
+          expectedProxyType: "UUPSProxy",
+          expectedImplementation: "WeETH",
+        },
+        {
+          address: "0x60acd58d00b2bcc9a8924fdaa54a2f7c0793b3b2", // Beacon proxy
+          expectedProxyType: "BeaconProxy",
+          expectedImplementation: "NFT20Pair",
+        },
       ];
 
       const startTime = performance.now();
@@ -96,7 +106,7 @@ describe("EtherscanClient", () => {
       // Test each proxy contract
       const results = await Promise.all(
         testCases.map(async (testCase) => {
-          const name = await client.getContractName2(testCase.address, 1);
+          const name = await client.getContractName(testCase.address, 1);
           return {
             address: testCase.address,
             result: name,
@@ -116,15 +126,17 @@ describe("EtherscanClient", () => {
           address: r.address,
           result: r.result,
           matchesExpected:
-            r.result.includes(r.expectedProxyType) &&
-            r.result.includes(r.expectedImplementation),
+            r.result.proxyType === r.expectedProxyType &&
+            r.result.implementationName === r.expectedImplementation,
         })),
       });
 
       // Verify results
       results.forEach((result) => {
-        expect(result.result).toContain(result.expectedProxyType);
-        expect(result.result).toContain(result.expectedImplementation);
+        expect(result.result.proxyType).toBe(result.expectedProxyType);
+        expect(result.result.implementationName).toBe(
+          result.expectedImplementation
+        );
       });
     }, 30000); // Increased timeout for multiple API calls
   });

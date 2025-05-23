@@ -1,4 +1,14 @@
 import axios from "axios";
+import { ethers } from "ethers";
+import { defaultProvider } from "./evm";
+
+export type ProxyType =
+  | "TransparentUpgradeableProxy"
+  // | "UUPSUpgradeable"
+  | "UUPSProxy"
+  | "EIP1967Proxy"
+  | "BeaconProxy"
+  | "MinimalProxy";
 
 export class EtherscanClient {
   private apiKey: string;
@@ -200,7 +210,7 @@ export class EtherscanClient {
    * Get contract name from verified source code
    * @param address The contract address
    */
-  async getContractName(address: string, chainid: number): Promise<string> {
+  async getContractName0(address: string, chainid: number): Promise<string> {
     const sourceCode = await this.getContractSourceCode(address, chainid);
     if (!sourceCode.ContractName) {
       return "Unknown";
@@ -209,14 +219,28 @@ export class EtherscanClient {
     return sourceCode.ContractName;
   }
 
-  async getContractName2(address: string, chainid: number): Promise<string> {
+  // /**
+  //  * Get contract name from verified source code and returns both the contract name and the proxy type
+  //  * @param address The contract address
+  //  * @returns {contractName: string, isProxy: boolean, proxyType: ProxyType | undefined, implementationName: string | undefined}
+  //  */
+  async getContractName(
+    address: string,
+    chainid: number
+  ): Promise<{
+    contractName: string;
+    isProxy: boolean;
+    proxyType: ProxyType | undefined;
+    implementationName: string | undefined;
+  }> {
     const sourceCode = await this.getContractSourceCode(address, chainid);
     const contractName = sourceCode.ContractName || "Unknown";
 
     // Check if it's a well-known proxy contract
     type ProxyType =
       | "TransparentUpgradeableProxy"
-      | "UUPSUpgradeable"
+      // | "UUPSUpgradeable"
+      | "UUPSProxy"
       | "EIP1967Proxy"
       | "BeaconProxy"
       | "MinimalProxy";
@@ -224,7 +248,7 @@ export class EtherscanClient {
       TransparentUpgradeableProxy: {
         slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
       },
-      UUPSUpgradeable: {
+      UUPSProxy: {
         slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
       },
       EIP1967Proxy: {
@@ -245,6 +269,33 @@ export class EtherscanClient {
 
     if (proxyType) {
       try {
+        if (proxyType === "BeaconProxy") {
+          const paddedBeaconAddress = await this.getContractStorage(
+            address,
+            "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50",
+            chainid
+          );
+
+          const beaconAddress = "0x" + paddedBeaconAddress.slice(26);
+          const beacon = new ethers.Contract(
+            beaconAddress,
+            ["function implementation() view returns (address)"],
+            defaultProvider
+          );
+          const implementationAddress = await beacon.implementation();
+          const implementationName = await this.getContractName0(
+            implementationAddress,
+            chainid
+          );
+
+          return {
+            contractName,
+            isProxy: true,
+            proxyType,
+            implementationName,
+          };
+        }
+
         // Get the implementation address from storage
         const implementationSlot = proxyPatterns[proxyType].slot;
         const paddedAddress = await this.getContractStorage(
@@ -252,22 +303,36 @@ export class EtherscanClient {
           implementationSlot,
           chainid
         );
-        console.log("paddedAddress", paddedAddress);
 
         const implementationAddress = "0x" + paddedAddress.slice(26);
 
-        const implementationName = await this.getContractName(
+        const implementationName = await this.getContractName0(
           implementationAddress,
           chainid
         );
 
-        return `${contractName} (${proxyType}) -> ${implementationName}`;
+        return {
+          contractName,
+          isProxy: true,
+          proxyType,
+          implementationName,
+        };
       } catch (error) {
-        return `${contractName} (${proxyType}) -> Unknown Implementation`;
+        return {
+          contractName,
+          isProxy: false,
+          proxyType: undefined,
+          implementationName: undefined,
+        };
       }
     }
 
-    return contractName;
+    return {
+      contractName,
+      isProxy: false,
+      proxyType: undefined,
+      implementationName: undefined,
+    };
   }
 
   /**
