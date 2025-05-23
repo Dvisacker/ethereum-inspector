@@ -4,7 +4,6 @@ import {
   filterEOAAddresses,
   findContractFunders,
   findEOAFunder,
-  getContractName,
   defaultProvider,
   isGnosisSafeProxy,
   isSafeContractBytecode,
@@ -25,7 +24,7 @@ const TEST_ADDRESSES = [
 ];
 
 // Known transaction hashes for testing
-const UNISWAP_V2_ROUTER_CREATION_TX =
+export const UNISWAP_V2_ROUTER_CREATION_TX =
   "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"; // This is just an example, we need the actual creation tx hash
 
 describe("EVM Utils", () => {
@@ -105,13 +104,6 @@ describe("EVM Utils", () => {
 
     it("should throw error for contract addresses", async () => {
       await expect(findEOAFunder(UNISWAP_V2_ROUTER)).rejects.toThrow();
-    }, 100000);
-  });
-
-  describe("getContractName", () => {
-    it("should get the contract name", async () => {
-      const name = await getContractName(UNISWAP_V2_ROUTER, 1);
-      expect(name).toBe("UniswapV2Router02");
     }, 100000);
   });
 

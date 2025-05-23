@@ -75,4 +75,57 @@ describe("EtherscanClient", () => {
       });
     }, 1000);
   });
+
+  describe("proxy detection", () => {
+    it("should detect proxy contracts and fetch implementation names", async () => {
+      const client = new EtherscanClient(ETHERSCAN_API_KEY, {
+        minTimeBetweenRequests: 200,
+        maxConcurrentRequests: 3,
+      });
+
+      const testCases = [
+        {
+          address: "0xef4fb24ad0916217251f553c0596f8edc630eb66", // deBridge
+          expectedProxyType: "TransparentUpgradeableProxy",
+          expectedImplementation: "DlnSource",
+        },
+      ];
+
+      const startTime = performance.now();
+
+      // Test each proxy contract
+      const results = await Promise.all(
+        testCases.map(async (testCase) => {
+          const name = await client.getContractName2(testCase.address, 1);
+          return {
+            address: testCase.address,
+            result: name,
+            expectedProxyType: testCase.expectedProxyType,
+            expectedImplementation: testCase.expectedImplementation,
+          };
+        })
+      );
+
+      const endTime = performance.now();
+      const totalTime = endTime - startTime;
+
+      // Log results for inspection
+      console.log("Proxy detection test results:", {
+        totalTime: `${totalTime.toFixed(2)}ms`,
+        results: results.map((r) => ({
+          address: r.address,
+          result: r.result,
+          matchesExpected:
+            r.result.includes(r.expectedProxyType) &&
+            r.result.includes(r.expectedImplementation),
+        })),
+      });
+
+      // Verify results
+      results.forEach((result) => {
+        expect(result.result).toContain(result.expectedProxyType);
+        expect(result.result).toContain(result.expectedImplementation);
+      });
+    }, 30000); // Increased timeout for multiple API calls
+  });
 });

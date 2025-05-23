@@ -209,6 +209,67 @@ export class EtherscanClient {
     return sourceCode.ContractName;
   }
 
+  async getContractName2(address: string, chainid: number): Promise<string> {
+    const sourceCode = await this.getContractSourceCode(address, chainid);
+    const contractName = sourceCode.ContractName || "Unknown";
+
+    // Check if it's a well-known proxy contract
+    type ProxyType =
+      | "TransparentUpgradeableProxy"
+      | "UUPSUpgradeable"
+      | "EIP1967Proxy"
+      | "BeaconProxy"
+      | "MinimalProxy";
+    const proxyPatterns: Record<ProxyType, { slot: string }> = {
+      TransparentUpgradeableProxy: {
+        slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      },
+      UUPSUpgradeable: {
+        slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      },
+      EIP1967Proxy: {
+        slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      },
+      BeaconProxy: {
+        slot: "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50",
+      },
+      MinimalProxy: {
+        slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      },
+    };
+
+    // Check if the contract name matches any proxy pattern
+    const proxyType = Object.keys(proxyPatterns).find((pattern) =>
+      contractName.toLowerCase().includes(pattern.toLowerCase())
+    ) as ProxyType | undefined;
+
+    if (proxyType) {
+      try {
+        // Get the implementation address from storage
+        const implementationSlot = proxyPatterns[proxyType].slot;
+        const paddedAddress = await this.getContractStorage(
+          address,
+          implementationSlot,
+          chainid
+        );
+        console.log("paddedAddress", paddedAddress);
+
+        const implementationAddress = "0x" + paddedAddress.slice(26);
+
+        const implementationName = await this.getContractName(
+          implementationAddress,
+          chainid
+        );
+
+        return `${contractName} (${proxyType}) -> ${implementationName}`;
+      } catch (error) {
+        return `${contractName} (${proxyType}) -> Unknown Implementation`;
+      }
+    }
+
+    return contractName;
+  }
+
   /**
    * Get contract creator and creation transaction hash
    * @param address The contract address
@@ -330,7 +391,7 @@ export class EtherscanClient {
         },
       });
 
-      if (response.data.status !== "1") {
+      if (!response.data.result) {
         throw new Error(
           `Failed to get contract storage: ${response.data.message}`
         );
