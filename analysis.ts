@@ -108,7 +108,7 @@ export class TransactionAnalyzer {
         tx.from !== address &&
         tx.value !== BigInt(0) &&
         tx.value &&
-        Number(tx.value) > 0.05 * ETHER // weed out spam transactions (TODO: make this configurable)
+        Number(tx.value) > config.get("spamTxEthThreshold") * ETHER // weed out spam transactions (TODO: make this configurable)
       ) {
         relatedAddresses.add(tx.from);
         relatedTxs.push({

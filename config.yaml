@@ -1,3 +1,4 @@
 outputFormat: table
 maxRelatedContracts: 10
 relatedWalletsThreshold: 1
+spamTxEthThreshold: 0.05
