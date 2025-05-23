@@ -235,6 +235,10 @@ export class EtherscanClient {
   }> {
     const sourceCode = await this.getContractSourceCode(address, chainid);
     const contractName = sourceCode.ContractName || "Unknown";
+    const EIP1967_PROXY_IMPLEMENTATION_SLOT =
+      "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
+    const BEACON_PROXY_IMPLEMENTATION_SLOT =
+      "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50";
 
     // Check if it's a well-known proxy contract
     type ProxyType =
@@ -246,19 +250,19 @@ export class EtherscanClient {
       | "MinimalProxy";
     const proxyPatterns: Record<ProxyType, { slot: string }> = {
       TransparentUpgradeableProxy: {
-        slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+        slot: EIP1967_PROXY_IMPLEMENTATION_SLOT,
       },
       UUPSProxy: {
-        slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+        slot: EIP1967_PROXY_IMPLEMENTATION_SLOT,
       },
       EIP1967Proxy: {
-        slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+        slot: EIP1967_PROXY_IMPLEMENTATION_SLOT,
       },
       BeaconProxy: {
-        slot: "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50",
+        slot: BEACON_PROXY_IMPLEMENTATION_SLOT,
       },
       MinimalProxy: {
-        slot: "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+        slot: EIP1967_PROXY_IMPLEMENTATION_SLOT,
       },
     };
 
@@ -272,7 +276,7 @@ export class EtherscanClient {
         if (proxyType === "BeaconProxy") {
           const paddedBeaconAddress = await this.getContractStorage(
             address,
-            "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50",
+            BEACON_PROXY_IMPLEMENTATION_SLOT,
             chainid
           );
 
