@@ -214,12 +214,26 @@ export class TransactionAnalyzer {
       )
     );
 
-    const walletInfos = wallets.map((wallet, index) => ({
-      address: wallet.address,
-      txCount: wallet.txCount,
-      entity: walletResponses[index]?.arkhamEntity?.name || "Unknown",
-      label: walletResponses[index]?.arkhamLabel?.name || "Unknown",
-    }));
+    const walletInfos = wallets.map((wallet, index) => {
+      const label = walletResponses[index]?.arkhamLabel?.name || "Unknown";
+      let entity = walletResponses[index]?.arkhamEntity?.name || "Unknown";
+
+      // If the label includes "Deposit" and the entity is "Unknown", set the entity to the first word in the label (eg. "Binance Deposit" -> "Binance")
+      if (
+        label.includes("Deposit") &&
+        label.split(" ").length === 2 &&
+        entity === "Unknown"
+      ) {
+        entity = label.split(" ")[0];
+      }
+
+      return {
+        address: wallet.address,
+        txCount: wallet.txCount,
+        entity,
+        label,
+      };
+    });
 
     // take top N contracts based on config
     const maxContracts = config.get("maxRelatedContracts");
