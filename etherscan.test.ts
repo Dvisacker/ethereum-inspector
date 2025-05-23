@@ -75,4 +75,69 @@ describe("EtherscanClient", () => {
       });
     }, 1000);
   });
+
+  describe("proxy detection", () => {
+    it("should detect proxy contracts and fetch implementation names", async () => {
+      const client = new EtherscanClient(ETHERSCAN_API_KEY, {
+        minTimeBetweenRequests: 200,
+        maxConcurrentRequests: 3,
+      });
+
+      const testCases = [
+        {
+          address: "0xef4fb24ad0916217251f553c0596f8edc630eb66", // deBridge
+          expectedProxyType: "TransparentUpgradeableProxy",
+          expectedImplementation: "DlnSource",
+        },
+        {
+          address: "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee", // UUPS proxy
+          expectedProxyType: "UUPSProxy",
+          expectedImplementation: "WeETH",
+        },
+        {
+          address: "0x60acd58d00b2bcc9a8924fdaa54a2f7c0793b3b2", // Beacon proxy
+          expectedProxyType: "BeaconProxy",
+          expectedImplementation: "NFT20Pair",
+        },
+      ];
+
+      const startTime = performance.now();
+
+      // Test each proxy contract
+      const results = await Promise.all(
+        testCases.map(async (testCase) => {
+          const name = await client.getContractName(testCase.address, 1);
+          return {
+            address: testCase.address,
+            result: name,
+            expectedProxyType: testCase.expectedProxyType,
+            expectedImplementation: testCase.expectedImplementation,
+          };
+        })
+      );
+
+      const endTime = performance.now();
+      const totalTime = endTime - startTime;
+
+      // Log results for inspection
+      console.log("Proxy detection test results:", {
+        totalTime: `${totalTime.toFixed(2)}ms`,
+        results: results.map((r) => ({
+          address: r.address,
+          result: r.result,
+          matchesExpected:
+            r.result.proxyType === r.expectedProxyType &&
+            r.result.implementationName === r.expectedImplementation,
+        })),
+      });
+
+      // Verify results
+      results.forEach((result) => {
+        expect(result.result.proxyType).toBe(result.expectedProxyType);
+        expect(result.result.implementationName).toBe(
+          result.expectedImplementation
+        );
+      });
+    }, 30000); // Increased timeout for multiple API calls
+  });
 });

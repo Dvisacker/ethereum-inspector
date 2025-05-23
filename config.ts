@@ -9,6 +9,7 @@ export interface Config {
   outputFormat: OutputFormat;
   maxRelatedContracts: number;
   relatedWalletsThreshold: number;
+  spamTxEthThreshold: number;
   arkhamCookie: string;
   alchemyApiKey: string;
   etherscanApiKey: string;
@@ -25,6 +26,7 @@ export class ConfigManager {
       outputFormat: "table" as OutputFormat,
       maxRelatedContracts: 10,
       relatedWalletsThreshold: 3,
+      spamTxEthThreshold: 0.05,
     };
 
     // 2. Load from config file

@@ -247,16 +247,27 @@ program
         if (answers2.action.includes("contracts")) {
           console.log(chalk.green("\nMost interacted contracts:"));
           const contractsTableCmd = new Table({
-            head: ["Address", "Tx Count", "Entity", "Label", "ContractName"],
+            head: [
+              "Address",
+              "Tx Count",
+              "Entity",
+              "Label",
+              "ContractName",
+              "Proxy",
+            ],
             style: { head: ["green"] },
           });
           contracts.forEach((contract) => {
+            const contractName = contract.isProxy
+              ? `${contract.implementationName} (Proxy Type: ${contract.proxyType})`
+              : contract.name;
             contractsTableCmd.push([
               contract.address,
               contract.txCount,
               contract.entity,
               contract.label,
-              contract.name,
+              contractName,
+              contract.isProxy ? "Yes" : "No",
             ]);
           });
           console.log(contractsTableCmd.toString());

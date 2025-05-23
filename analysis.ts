@@ -4,7 +4,7 @@ import { Transaction } from "@envio-dev/hypersync-client";
 import { find6HourTimeframes, inferTimezoneRegion } from "./time";
 import { findBusiestPeriod } from "./time";
 import { ArkhamClient } from "./arkham";
-import { EtherscanClient } from "./etherscan";
+import { EtherscanClient, ProxyType } from "./etherscan";
 import { safePromise } from "./helpers";
 import { config } from "./config";
 
@@ -108,7 +108,7 @@ export class TransactionAnalyzer {
         tx.from !== address &&
         tx.value !== BigInt(0) &&
         tx.value &&
-        Number(tx.value) > 0.05 * ETHER // weed out spam transactions (TODO: make this configurable)
+        Number(tx.value) > config.get("spamTxEthThreshold") * ETHER // weed out spam transactions (TODO: make this configurable)
       ) {
         relatedAddresses.add(tx.from);
         relatedTxs.push({
@@ -191,6 +191,9 @@ export class TransactionAnalyzer {
       entity: string;
       label: string;
       name: string;
+      isProxy: boolean;
+      proxyType: ProxyType | undefined;
+      implementationName: string | undefined;
     }[];
   }> {
     let { eoas: wallets, contracts } = await this.getRelatedWallets(address);
@@ -260,7 +263,10 @@ export class TransactionAnalyzer {
       txCount: contract.txCount,
       entity: contractResponses[index]?.arkhamEntity?.name || "Unknown",
       label: contractResponses[index]?.arkhamLabel?.name || "Unknown",
-      name: contractNames[index] || "Unknown",
+      name: contractNames[index]?.contractName || "Unknown",
+      isProxy: contractNames[index]?.isProxy || false,
+      proxyType: contractNames[index]?.proxyType || undefined,
+      implementationName: contractNames[index]?.implementationName || undefined,
     }));
 
     return {
