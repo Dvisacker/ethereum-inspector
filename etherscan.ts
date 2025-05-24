@@ -29,8 +29,8 @@ export class EtherscanClient {
   ) {
     this.apiKey = apiKey;
     this.baseUrl = this.getBaseUrl();
-    this.minTimeBetweenRequests = options.minTimeBetweenRequests || 200; // Etherscan's free tier allows 5 requests per second
-    this.maxConcurrentRequests = options.maxConcurrentRequests || 5;
+    this.minTimeBetweenRequests = options.minTimeBetweenRequests || 250; // Etherscan's free tier allows 5 requests per second
+    this.maxConcurrentRequests = options.maxConcurrentRequests || 4;
   }
 
   private getBaseUrl(): string {
@@ -274,10 +274,9 @@ export class EtherscanClient {
     if (proxyType) {
       try {
         if (proxyType === "BeaconProxy") {
-          const paddedBeaconAddress = await this.getContractStorage(
+          const paddedBeaconAddress = await defaultProvider.getStorage(
             address,
-            BEACON_PROXY_IMPLEMENTATION_SLOT,
-            chainid
+            BEACON_PROXY_IMPLEMENTATION_SLOT
           );
 
           const beaconAddress = "0x" + paddedBeaconAddress.slice(26);
@@ -302,10 +301,9 @@ export class EtherscanClient {
 
         // Get the implementation address from storage
         const implementationSlot = proxyPatterns[proxyType].slot;
-        const paddedAddress = await this.getContractStorage(
+        const paddedAddress = await defaultProvider.getStorage(
           address,
-          implementationSlot,
-          chainid
+          implementationSlot
         );
 
         const implementationAddress = "0x" + paddedAddress.slice(26);

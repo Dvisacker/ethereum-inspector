@@ -1,5 +1,5 @@
 import { ETHER, HyperSync } from "./hypersync";
-import { isSmartContract } from "./evm";
+import { defaultProvider, isSmartContract } from "./evm";
 import { Transaction } from "@envio-dev/hypersync-client";
 import { find6HourTimeframes, inferTimezoneRegion } from "./time";
 import { findBusiestPeriod } from "./time";
@@ -7,6 +7,7 @@ import { ArkhamClient } from "./arkham";
 import { EtherscanClient, ProxyType } from "./etherscan";
 import { safePromise } from "./helpers";
 import { config } from "./config";
+import { ethers } from "ethers";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -161,6 +162,8 @@ export class TransactionAnalyzer {
       txByAddressCount.set(tx.address, currentCount + 1);
     }
 
+    console.log(txByAddressCount);
+
     const eoas: { address: string; txCount: number }[] = [];
     const contracts: { address: string; txCount: number }[] = [];
     for (const address of relatedAddresses) {
@@ -210,16 +213,28 @@ export class TransactionAnalyzer {
         wallet.address !== "0x0000000000000000000000000000000000000000"
     );
 
-    // Fetch all wallet info in parallel with error handling
-    const walletResponses = await Promise.all(
-      wallets.map((wallet) =>
-        safePromise(this.arkham.fetchAddress(wallet.address))
-      )
-    );
+    // Fetch all contract info in parallel with error handling
+    const [walletLabels, contractLabels, contractNames] = await Promise.all([
+      Promise.all(
+        wallets.map((wallet) =>
+          safePromise(this.arkham.fetchAddress(wallet.address))
+        )
+      ),
+      Promise.all(
+        contracts.map((contract) =>
+          safePromise(this.arkham.fetchAddress(contract.address))
+        )
+      ),
+      Promise.all(
+        contracts.map((contract) =>
+          safePromise(this.etherscan.getContractName(contract.address, 1))
+        )
+      ),
+    ]);
 
     const walletInfos = wallets.map((wallet, index) => {
-      const label = walletResponses[index]?.arkhamLabel?.name || "Unknown";
-      let entity = walletResponses[index]?.arkhamEntity?.name || "Unknown";
+      const label = walletLabels[index]?.arkhamLabel?.name || "Unknown";
+      let entity = walletLabels[index]?.arkhamEntity?.name || "Unknown";
 
       // If the label includes "Deposit" and the entity is "Unknown", set the entity to the first word in the label (eg. "Binance Deposit" -> "Binance")
       if (
@@ -238,36 +253,21 @@ export class TransactionAnalyzer {
       };
     });
 
-    // take top N contracts based on config
     const maxContracts = config.get("maxRelatedContracts");
-    contracts = contracts
+    const contractInfos = contracts
+      .map((contract, index) => ({
+        address: contract.address,
+        txCount: contract.txCount,
+        entity: contractLabels[index]?.arkhamEntity?.name || "Unknown",
+        label: contractLabels[index]?.arkhamLabel?.name || "Unknown",
+        name: contractNames[index]?.contractName || "Unknown",
+        isProxy: contractNames[index]?.isProxy || false,
+        proxyType: contractNames[index]?.proxyType || undefined,
+        implementationName:
+          contractNames[index]?.implementationName || undefined,
+      }))
       .sort((a, b) => b.txCount - a.txCount)
       .slice(0, maxContracts);
-
-    // Fetch all contract info in parallel with error handling
-    const [contractResponses, contractNames] = await Promise.all([
-      Promise.all(
-        contracts.map((contract) =>
-          safePromise(this.arkham.fetchAddress(contract.address))
-        )
-      ),
-      Promise.all(
-        contracts.map((contract) =>
-          safePromise(this.etherscan.getContractName(contract.address, 1))
-        )
-      ),
-    ]);
-
-    const contractInfos = contracts.map((contract, index) => ({
-      address: contract.address,
-      txCount: contract.txCount,
-      entity: contractResponses[index]?.arkhamEntity?.name || "Unknown",
-      label: contractResponses[index]?.arkhamLabel?.name || "Unknown",
-      name: contractNames[index]?.contractName || "Unknown",
-      isProxy: contractNames[index]?.isProxy || false,
-      proxyType: contractNames[index]?.proxyType || undefined,
-      implementationName: contractNames[index]?.implementationName || undefined,
-    }));
 
     return {
       wallets: walletInfos,
@@ -487,10 +487,10 @@ Busiest Periods:
       analysis.busiestYear.count
     } transactions)
 Timezone Analysis:
-- "Work" (Most active) Window: ${format6HourWindow(
+- "Work" Window (Most active): ${format6HourWindow(
       analysis.busiest6Hour.startHour
     )} (${analysis.busiest6Hour.count} transactions)
-- "Sleep" (Least active) Window: ${format6HourWindow(
+- "Sleep" Window (Least active): ${format6HourWindow(
       analysis.leastBusy6Hour.startHour
     )} (${analysis.leastBusy6Hour.count} transactions)
 ${timezoneInfo}`;
