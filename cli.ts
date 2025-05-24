@@ -259,7 +259,7 @@ program
           });
           contracts.forEach((contract) => {
             const contractName = contract.isProxy
-              ? `${contract.implementationName} (Proxy Type: ${contract.proxyType})`
+              ? `${contract.proxyType} -> ${contract.implementationName}`
               : contract.name;
             contractsTableCmd.push([
               contract.address,
