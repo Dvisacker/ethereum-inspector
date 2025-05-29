@@ -188,8 +188,6 @@ export async function isGnosisSafeProxy(
       .then(() => true)
       .catch(() => false);
 
-    console.log("isSafe", isSafe);
-
     if (!isSafe) {
       return { isSafe: false };
     }

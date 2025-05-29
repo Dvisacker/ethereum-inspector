@@ -70,17 +70,14 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
 ### Improvements
 - Optimizations:
   - Some hypersync queries can be batched
-  - Promise.all instead of looping awaits
   - Treat related wallets with high tx counts differently (skip costly analysises)
-  - Detect known contracts by bytecode to avoid calling etherscan (also faster)
+  - Caching layer for etherscan/arkham
 - Improved heuristic for related wallets. 
 - Check if there is way to use Nansen/Etherscan free
 - Cache last analysis selected options 
-- If a contract name is a proxy (Ex ERC1967Proxy), get the implementation contract name.
-- ?
 
 ### Additional features
-- Wallet similarity analysis between 2 wallets and calculate 1) tx timing similarity score 2) interacted contracts similarity score 3) etc. Not too hard to do and this feature doesn't exist anywhere else.
+- Wallet similarity analysis between 2 wallets and calculate 1) tx timing similarity score 2) interacted contracts similarity score
 - Column with total net inflow/outflow to related wallets. Only considering major tokens like USDC, USDT, ETH, WETH, WBTC, etc. to simplify. Maybe a good feature to distinguish which wallets are really related.
 - Embedded DB (sqlite?) with labels from github. Also ofac lists/apis.
 - Related wallets first tx date
