@@ -1,9 +1,13 @@
 import { ETHER, HyperSync } from "./hypersync";
-import { getContractName, isSmartContract } from "./evm";
+import { defaultProvider, isSmartContract } from "./evm";
 import { Transaction } from "@envio-dev/hypersync-client";
 import { find6HourTimeframes, inferTimezoneRegion } from "./time";
 import { findBusiestPeriod } from "./time";
 import { ArkhamClient } from "./arkham";
+import { EtherscanClient, ProxyType } from "./etherscan";
+import { safePromise } from "./helpers";
+import { config } from "./config";
+import { ethers } from "ethers";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -41,9 +45,12 @@ export interface RelatedWalletTx {
 
 export class TransactionAnalyzer {
   private hyperSync: HyperSync;
-
+  private etherscan: EtherscanClient;
+  private arkham: ArkhamClient;
   constructor() {
     this.hyperSync = new HyperSync();
+    this.etherscan = new EtherscanClient(config.get("etherscanApiKey"));
+    this.arkham = new ArkhamClient(config.get("arkhamCookie"));
   }
 
   /**
@@ -55,7 +62,6 @@ export class TransactionAnalyzer {
    */
   async getRelatedWallets(
     address: string,
-    threshold?: number,
     fromBlock?: number,
     toBlock?: number
   ): Promise<{
@@ -103,7 +109,7 @@ export class TransactionAnalyzer {
         tx.from !== address &&
         tx.value !== BigInt(0) &&
         tx.value &&
-        Number(tx.value) > 0.05 * ETHER // weed out spam transactions (TODO: make this configurable)
+        Number(tx.value) > config.get("spamTxEthThreshold") * ETHER // weed out spam transactions (TODO: make this configurable)
       ) {
         relatedAddresses.add(tx.from);
         relatedTxs.push({
@@ -156,11 +162,13 @@ export class TransactionAnalyzer {
       txByAddressCount.set(tx.address, currentCount + 1);
     }
 
+    console.log(txByAddressCount);
+
     const eoas: { address: string; txCount: number }[] = [];
     const contracts: { address: string; txCount: number }[] = [];
     for (const address of relatedAddresses) {
       const txCount = txByAddressCount.get(address) || 0;
-      if (txCount < (threshold || 1)) continue;
+      if (txCount < config.get("relatedWalletsThreshold")) continue;
 
       const isContract = await isSmartContract(address);
       if (isContract) {
@@ -173,10 +181,7 @@ export class TransactionAnalyzer {
     return { eoas, contracts };
   }
 
-  async analyzeRelatedWallets(
-    address: string,
-    threshold?: number
-  ): Promise<{
+  async analyzeRelatedWallets(address: string): Promise<{
     wallets: {
       address: string;
       txCount: number;
@@ -189,12 +194,12 @@ export class TransactionAnalyzer {
       entity: string;
       label: string;
       name: string;
+      isProxy: boolean;
+      proxyType: ProxyType | undefined;
+      implementationName: string | undefined;
     }[];
   }> {
-    let { eoas: wallets, contracts } = await this.getRelatedWallets(
-      address,
-      threshold
-    );
+    let { eoas: wallets, contracts } = await this.getRelatedWallets(address);
 
     if (wallets.length === 0 && contracts.length === 0) {
       console.log("No related wallets found");
@@ -208,45 +213,61 @@ export class TransactionAnalyzer {
         wallet.address !== "0x0000000000000000000000000000000000000000"
     );
 
-    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
-    const walletInfos: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-    }[] = [];
+    // Fetch all contract info in parallel with error handling
+    const [walletLabels, contractLabels, contractNames] = await Promise.all([
+      Promise.all(
+        wallets.map((wallet) =>
+          safePromise(this.arkham.fetchAddress(wallet.address))
+        )
+      ),
+      Promise.all(
+        contracts.map((contract) =>
+          safePromise(this.arkham.fetchAddress(contract.address))
+        )
+      ),
+      Promise.all(
+        contracts.map((contract) =>
+          safePromise(this.etherscan.getContractName(contract.address, 1))
+        )
+      ),
+    ]);
 
-    for (const wallet of wallets) {
-      const response = await arkham.fetchAddress(wallet.address);
-      walletInfos.push({
+    const walletInfos = wallets.map((wallet, index) => {
+      const label = walletLabels[index]?.arkhamLabel?.name || "Unknown";
+      let entity = walletLabels[index]?.arkhamEntity?.name || "Unknown";
+
+      // If the label includes "Deposit" and the entity is "Unknown", set the entity to the first word in the label (eg. "Binance Deposit" -> "Binance")
+      if (
+        label.includes("Deposit") &&
+        label.split(" ").length === 2 &&
+        entity === "Unknown"
+      ) {
+        entity = label.split(" ")[0];
+      }
+
+      return {
         address: wallet.address,
         txCount: wallet.txCount,
-        entity: response.arkhamEntity?.name || "Unknown",
-        label: response.arkhamLabel?.name || "Unknown",
-      });
-    }
+        entity,
+        label,
+      };
+    });
 
-    // take top 10 contracts
-    contracts = contracts.sort((a, b) => b.txCount - a.txCount).slice(0, 10);
-    const contractInfos: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-      name: string;
-    }[] = [];
-
-    for (const contract of contracts) {
-      const response = await arkham.fetchAddress(contract.address);
-      const name = await getContractName(contract.address, 1);
-      contractInfos.push({
+    const maxContracts = config.get("maxRelatedContracts");
+    const contractInfos = contracts
+      .map((contract, index) => ({
         address: contract.address,
         txCount: contract.txCount,
-        entity: response.arkhamEntity?.name || "Unknown",
-        label: response.arkhamLabel?.name || "Unknown",
-        name: name || "Unknown",
-      });
-    }
+        entity: contractLabels[index]?.arkhamEntity?.name || "Unknown",
+        label: contractLabels[index]?.arkhamLabel?.name || "Unknown",
+        name: contractNames[index]?.contractName || "Unknown",
+        isProxy: contractNames[index]?.isProxy || false,
+        proxyType: contractNames[index]?.proxyType || undefined,
+        implementationName:
+          contractNames[index]?.implementationName || undefined,
+      }))
+      .sort((a, b) => b.txCount - a.txCount)
+      .slice(0, maxContracts);
 
     return {
       wallets: walletInfos,
@@ -272,22 +293,41 @@ export class TransactionAnalyzer {
         label: string;
       }
     >();
-    const arkham = new ArkhamClient(process.env.ARKHAM_COOKIE || "");
 
-    for (const address of addresses) {
-      const tx = await this.hyperSync.getAddressFirstReceivedTransaction(
-        address
-      );
-      const { arkhamEntity, arkhamLabel } = await arkham.fetchAddress(address);
+    // Fetch all first transactions and address info in parallel with error handling
+    const [firstTransactions, addressInfos] = await Promise.all([
+      Promise.all(
+        addresses.map((address) =>
+          safePromise(
+            this.hyperSync.getAddressFirstReceivedTransaction(address)
+          )
+        )
+      ),
+      Promise.all(
+        addresses.map((address) =>
+          safePromise(this.arkham.fetchAddress(address))
+        )
+      ),
+    ]);
 
-      if (tx.transactions.length > 0) {
-        if (tx.transactions[0].from) {
-          fundingWallets.set(address, {
-            address: tx.transactions[0].from,
-            entity: arkhamEntity?.name || "Unknown",
-            label: arkhamLabel?.name || "Unknown",
-          });
-        }
+    // Process results
+    for (let i = 0; i < addresses.length; i++) {
+      const address = addresses[i];
+      const tx = firstTransactions[i];
+      const addressInfo = addressInfos[i];
+
+      if (
+        tx &&
+        tx.transactions &&
+        tx.transactions.length > 0 &&
+        tx.transactions[0].from &&
+        addressInfo
+      ) {
+        fundingWallets.set(address, {
+          address: tx.transactions[0].from,
+          entity: addressInfo.arkhamEntity?.name || "Unknown",
+          label: addressInfo.arkhamLabel?.name || "Unknown",
+        });
       }
     }
 
@@ -447,10 +487,10 @@ Busiest Periods:
       analysis.busiestYear.count
     } transactions)
 Timezone Analysis:
-- "Work" (Most active) Window: ${format6HourWindow(
+- "Work" Window (Most active): ${format6HourWindow(
       analysis.busiest6Hour.startHour
     )} (${analysis.busiest6Hour.count} transactions)
-- "Sleep" (Least active) Window: ${format6HourWindow(
+- "Sleep" Window (Least active): ${format6HourWindow(
       analysis.leastBusy6Hour.startHour
     )} (${analysis.leastBusy6Hour.count} transactions)
 ${timezoneInfo}`;

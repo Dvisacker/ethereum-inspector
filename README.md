@@ -73,11 +73,6 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
   - Promise.all instead of looping awaits
   - Treat related wallets with high tx counts differently (skip costly analysises)
   - Detect known contracts by bytecode to avoid calling etherscan (also faster)
-- Config file with options: 
-  - Threshold of txns to be considered a related wallet
-  - Whether inflows are considered when determining related wallets. 
-  - Max number of interact contracts (currently 10)
-  - etc. 
 - Improved heuristic for related wallets. 
 - Check if there is way to use Nansen/Etherscan free
 - Cache last analysis selected options 
@@ -98,7 +93,7 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
 
 ### Issues
  - Would like to have etherscan/arkham/dbank/twitter address links in table outputs but this seems hard to do.
- - Set "{Exchange} Deposit" as "{Exchange}" (currently set as Unknown)
  - Some arkham MEV bot labels seem to be wrong (ex 0x0f4a1d7fdf4890be35e71f3e0bbc4a0ec377eca3)
  - Some contracts (Gnosis Safe, Rabby Fee Wallet? and other smart wallets) should probably be included in the "EOA category" and not in the contract interaction category.
  - Middle-east (Dubai) time maybe too close to both Asia/Europe to be distinguishable in timing analysis.
+ - Some functionality should be made multichain. For example when fetching contract names, we are currently only fetching from etherscan mainnet.

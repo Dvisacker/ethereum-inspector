@@ -156,40 +156,6 @@ export async function findEOAFunder(
 }
 
 /**
- * Get the name of a smart contract
- * @param address The contract address
- * @param provider Optional ethers provider
- */
-export async function getContractName(
-  address: string,
-  chainid: number,
-  provider?: ethers.Provider
-): Promise<string> {
-  try {
-    const apiKey = process.env.ETHERSCAN_API_KEY;
-    if (apiKey) {
-      const etherscan = new EtherscanClient(apiKey);
-      try {
-        return await etherscan.getContractName(address, chainid);
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message.includes("Contract name not found")
-        ) {
-          return "Unverified contract";
-        }
-        console.warn("Failed to get contract name from Etherscan:", error);
-      }
-    }
-
-    return "Unknown";
-  } catch (error) {
-    console.error("Error getting contract name:", error);
-    return "Unknown";
-  }
-}
-
-/**
  * Checks if a contract is a Gnosis Safe by verifying its interface
  * @param address The contract address to check
  * @param provider The ethers provider
