@@ -162,8 +162,6 @@ export class TransactionAnalyzer {
       txByAddressCount.set(tx.address, currentCount + 1);
     }
 
-    console.log(txByAddressCount);
-
     const eoas: { address: string; txCount: number }[] = [];
     const contracts: { address: string; txCount: number }[] = [];
     for (const address of relatedAddresses) {
