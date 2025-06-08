@@ -2,6 +2,14 @@
 
 A command-line interface for analyzing ethereum addresses.
 
+Here are some examples of results for Abraxas (an italian crypto fund)
+
+![Abraxas](./assets/abraxas1.png)
+
+![Abraxas](./assets/abraxas2.png)
+
+
+
 ## Installation (didn't test, only use dev mode for now)
 
 ```bash
