@@ -2,6 +2,14 @@
 
 A command-line interface for analyzing ethereum addresses.
 
+Here are some examples of results for Abraxas (an italian crypto fund)
+
+![Abraxas](./assets/abraxas1.png)
+
+![Abraxas](./assets/abraxas2.png)
+
+
+
 ## Installation (didn't test, only use dev mode for now)
 
 ```bash
@@ -70,7 +78,7 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
 ### Improvements
 - Optimizations:
   - Some hypersync queries can be batched
-  - Treat related wallets with high tx counts differently (skip costly analysises)
+  - Treat related wallets with high tx counts differently (skip costly analyses)
   - Caching layer for etherscan/arkham
 - Improved heuristic for related wallets. 
 - Check if there is way to use Nansen/Etherscan free
