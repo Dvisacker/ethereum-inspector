@@ -8,6 +8,7 @@ import { EtherscanClient, ProxyType } from "./etherscan";
 import { safePromise } from "./helpers";
 import { config } from "./config";
 import { ethers } from "ethers";
+import { ContractInfo } from "./formatters/csv";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -34,6 +35,11 @@ export interface RelatedWalletInfo {
   txCount: number;
   entity: string;
   label: string;
+}
+
+export interface RelatedWalletWithFundingInfo extends RelatedWalletInfo {
+  fundingWallet?: string;
+  fundingWalletEntity?: string;
 }
 
 export interface RelatedWalletTx {
@@ -68,7 +74,6 @@ export class TransactionAnalyzer {
     eoas: { address: string; txCount: number }[];
     contracts: { address: string; txCount: number }[];
   }> {
-    // Get all transfers involving the address
     const { transactions, logs, blocks } =
       await this.hyperSync.getOutflowsAndWhitelistedInflows([address]);
 
@@ -80,11 +85,10 @@ export class TransactionAnalyzer {
       }
     });
 
-    // Get related transactions and collect unique addresses
     const relatedAddresses = new Set<string>();
     const relatedTxs: RelatedWalletTx[] = [];
 
-    // Process regular transactions
+    // 1. Process regular ETH transfers
     for (const tx of transactions) {
       if (!tx.blockNumber) continue;
       if (fromBlock && tx.blockNumber < fromBlock) continue;
@@ -109,7 +113,7 @@ export class TransactionAnalyzer {
         tx.from !== address &&
         tx.value !== BigInt(0) &&
         tx.value &&
-        Number(tx.value) > config.get("spamTxEthThreshold") * ETHER // weed out spam transactions (TODO: make this configurable)
+        Number(tx.value) > config.get("spamTxEthThreshold") * ETHER // weed out spam transactions
       ) {
         relatedAddresses.add(tx.from);
         relatedTxs.push({
@@ -128,7 +132,7 @@ export class TransactionAnalyzer {
       }
     }
 
-    // ERC20 transfers
+    // 2. Process ERC20 transfers
     for (const log of logs) {
       if (!log.blockNumber || !log.topics || log.topics.length < 3) continue;
 
@@ -180,22 +184,8 @@ export class TransactionAnalyzer {
   }
 
   async analyzeRelatedWallets(address: string): Promise<{
-    wallets: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-    }[];
-    contracts: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-      name: string;
-      isProxy: boolean;
-      proxyType: ProxyType | undefined;
-      implementationName: string | undefined;
-    }[];
+    wallets: RelatedWalletInfo[];
+    contracts: ContractInfo[];
   }> {
     let { eoas: wallets, contracts } = await this.getRelatedWallets(address);
 
@@ -273,16 +263,9 @@ export class TransactionAnalyzer {
     };
   }
 
-  async getFundingWallets(addresses: string[]): Promise<
-    Map<
-      string,
-      {
-        address: string;
-        entity: string;
-        label: string;
-      }
-    >
-  > {
+  async getFundingWallets(
+    wallets: RelatedWalletInfo[]
+  ): Promise<RelatedWalletWithFundingInfo[]> {
     const fundingWallets = new Map<
       string,
       {
@@ -292,25 +275,24 @@ export class TransactionAnalyzer {
       }
     >();
 
-    // Fetch all first transactions and address info in parallel with error handling
+    // Fetch all first transactions and address info in parallel
     const [firstTransactions, addressInfos] = await Promise.all([
       Promise.all(
-        addresses.map((address) =>
+        wallets.map((wallet) =>
           safePromise(
-            this.hyperSync.getAddressFirstReceivedTransaction(address)
+            this.hyperSync.getAddressFirstReceivedTransaction(wallet.address)
           )
         )
       ),
       Promise.all(
-        addresses.map((address) =>
-          safePromise(this.arkham.fetchAddress(address))
+        wallets.map((wallet) =>
+          safePromise(this.arkham.fetchAddress(wallet.address))
         )
       ),
     ]);
 
-    // Process results
-    for (let i = 0; i < addresses.length; i++) {
-      const address = addresses[i];
+    for (let i = 0; i < wallets.length; i++) {
+      const wallet = wallets[i];
       const tx = firstTransactions[i];
       const addressInfo = addressInfos[i];
 
@@ -321,7 +303,7 @@ export class TransactionAnalyzer {
         tx.transactions[0].from &&
         addressInfo
       ) {
-        fundingWallets.set(address, {
+        fundingWallets.set(wallet.address, {
           address: tx.transactions[0].from,
           entity: addressInfo.arkhamEntity?.name || "Unknown",
           label: addressInfo.arkhamLabel?.name || "Unknown",
@@ -329,7 +311,16 @@ export class TransactionAnalyzer {
       }
     }
 
-    return fundingWallets;
+    const walletsWithFunding = wallets.map((wallet, index) => ({
+      ...wallet,
+      address: wallet.address,
+      fundingWallet: fundingWallets.get(wallets[index].address)?.address,
+      fundingWalletEntity: `${
+        fundingWallets.get(wallets[index].address)?.entity
+      } (${fundingWallets.get(wallets[index].address)?.label})`,
+    }));
+
+    return walletsWithFunding;
   }
 
   /**

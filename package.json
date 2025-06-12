@@ -34,12 +34,14 @@
     "axios": "^1.8.4",
     "cli-table3": "^0.6.5",
     "commander": "^11.1.0",
+    "csv-writer": "^1.6.0",
     "dotenv": "^16.5.0",
     "ethers": "^6.13.5",
     "inquirer": "^12.6.1",
     "open": "^9.1.0",
     "ora": "^8.2.0",
     "winston": "^3.11.0",
+    "xlsx-js-style": "^1.2.0",
     "yaml": "^2.8.0"
   }
 }
