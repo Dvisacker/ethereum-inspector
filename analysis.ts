@@ -8,6 +8,7 @@ import { EtherscanClient, ProxyType } from "./etherscan";
 import { safePromise } from "./helpers";
 import { config } from "./config";
 import { ethers } from "ethers";
+import { ContractInfo } from "./formatters/csv";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -183,22 +184,8 @@ export class TransactionAnalyzer {
   }
 
   async analyzeRelatedWallets(address: string): Promise<{
-    wallets: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-    }[];
-    contracts: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-      name: string;
-      isProxy: boolean;
-      proxyType: ProxyType | undefined;
-      implementationName: string | undefined;
-    }[];
+    wallets: RelatedWalletInfo[];
+    contracts: ContractInfo[];
   }> {
     let { eoas: wallets, contracts } = await this.getRelatedWallets(address);
 

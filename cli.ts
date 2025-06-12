@@ -32,7 +32,8 @@ program
 
       let address: string;
 
-      // if search is an ethereum address, fetch the entity
+      // if the search string is not an ethereum address, fetch the entity from arkham 
+      // and suggest related addresses
       if (!isAddress(search)) {
         const results = await arkham.searchEntities(search);
 
