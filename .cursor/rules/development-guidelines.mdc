@@ -1,0 +1,68 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Development Guidelines
+
+## Coding Standards
+
+### TypeScript Best Practices
+- **Strict Type Safety**: Use strict TypeScript configuration as defined in [tsconfig.json](mdc:tsconfig.json)
+- **Interface Definition**: All data structures are defined in [types.ts](mdc:types.ts) with proper typing
+- **Async/Await**: Prefer async/await over Promise chains for better readability
+- **Error Handling**: Always handle Promise rejections and provide meaningful error messages
+
+### Code Organization
+- **Single Responsibility**: Each module should have a clear, single purpose
+- **Separation of Concerns**: Keep API clients, business logic, and CLI presentation separate
+- **Consistent Naming**: Use descriptive names for functions, variables, and classes
+- **File Structure**: Related functionality grouped in same file, with `.test.ts` files for tests
+
+### API Integration Guidelines
+- **Rate Limiting**: Respect API rate limits and implement backoff strategies
+- **Error Recovery**: Graceful handling of API failures with user-friendly messages
+- **Data Validation**: Validate all external API responses before processing
+
+## Configuration Management
+
+### Environment Setup
+Required environment variables must be set in `.env` file:
+```env
+ETHERSCAN_API_KEY=your_etherscan_api_key
+ALCHEMY_API_KEY=your_alchemy_api_key
+ARKHAM_COOKIE=your_arkham_cookie
+```
+
+### Configuration Precedence
+Configuration loading order (highest to lowest priority):
+1. Environment variables
+2. [config.yaml](mdc:config.yaml) file
+3. Default values in [config.ts](mdc:config.ts)
+
+## Testing Standards
+
+### Test File Organization
+- Modules/files should preferably have a corresponding `.test.ts` file
+- Test files should be in the same directory as the module they test
+- Use descriptive test names that explain the expected behavior
+
+### Test Categories
+- For the sake of simplicity, test should preferably not use any mocking and focus 
+on testing actual behavior.
+
+### Running Tests
+```bash
+npm test                    # Run all tests
+npm test -- --watch       # Run tests in watch mode
+npm test -- --coverage    # Run with coverage report
+```
+
+## Development Workflow
+
+### Code Quality Checklist
+Before committing code, ensure:
+- [ ] TypeScript compiles without errors (`npm run build`)
+- [ ] Follows existing patterns
+- [ ] New functionality includes appropriate tests
+- [ ] Error handling is implemented for all async operations

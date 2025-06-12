@@ -1,0 +1,47 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Project Overview - Wallet Analysis CLI
+
+## Purpose
+This is a TypeScript-based command-line interface for analyzing Ethereum wallet addresses. The tool provides comprehensive analysis capabilities including transaction timing patterns, related wallet discovery, contract interactions, and funding source analysis.
+
+## Key Features
+- **Transaction Timing Analysis**: Analyzes transaction patterns by hour, day, month, and year to infer user behavior and timezone
+- **Related Wallets Discovery**: Identifies wallets that have transaction relationships using heuristics to filter out spam
+- **Contract Interaction Analysis**: Shows most frequently interacted smart contracts
+- **Funding Source Analysis**: Traces the funding sources of related wallets
+- **Arkham Intelligence Integration**: Uses Arkham's API for entity labeling and enhanced wallet information
+
+## Project Structure
+The main entry point is [cli.ts](mdc:cli.ts), which implements the command-line interface using Commander.js. Core analysis logic is in [analysis.ts](mdc:analysis.ts), which orchestrates different analysis modules.
+
+Key modules:
+- [config.ts](mdc:config.ts) - Configuration management with YAML and environment variable support
+- [etherscan.ts](mdc:etherscan.ts) - Etherscan API integration for transaction data
+- [arkham.ts](mdc:arkham.ts) - Arkham Intelligence API client for entity labeling
+- [hypersync.ts](mdc:hypersync.ts) - Hypersync client for efficient blockchain data retrieval
+- [evm.ts](mdc:evm.ts) - EVM blockchain interaction utilities
+- [types.ts](mdc:types.ts) - Core TypeScript interfaces and types
+- [utils.ts](mdc:utils.ts) - Common utility functions
+- [helpers.ts](mdc:helpers.ts) - Analysis helper functions
+- [time.ts](mdc:time.ts) - Time zone and temporal analysis utilities
+- [logger.ts](mdc:logger.ts) - Winston-based logging system
+
+## Technology Stack
+- **Runtime**: Node.js with TypeScript
+- **CLI Framework**: Commander.js with Inquirer.js for interactive prompts
+- **Blockchain Data**: Etherscan API, Alchemy API, Hypersync
+- **External APIs**: Arkham Intelligence
+- **Testing**: Jest with ts-jest
+- **Build**: TypeScript compiler
+- **Dependencies**: ethers.js, axios, ora (spinners), cli-table3 (tables), winston (logging)
+
+## Development Workflow
+1. Configuration via `.env` file with API keys
+2. Build with `npm run build` 
+3. Run with `npm run dev <address>`
+4. Test with `npm test`
+5. Package as global CLI with `npm install -g .`
