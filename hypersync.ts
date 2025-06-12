@@ -17,12 +17,12 @@ const transferTopic =
 
 // TODO: Add more, make this multichain
 export const WHITELISTED_TOKENS = {
-  USDT: "0xdac17f958d2ee523a2206206994597c13d831ec7", // Ethereum Mainnet USDT
-  USDC: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // Ethereum Mainnet USDC
-  WETH: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // Ethereum Mainnet WETH
-  DAI: "0x6b175474e89094c44da98b954eedeac495271d0f", // Ethereum Mainnet DAI
-  WBTC: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", // Ethereum Mainnet WBTC
-  USDS: "0xdc035d45d973e3ec169d2276ddab16f1e407384f", // Ethereum Mainnet USDS
+  USDT: "0xdac17f958d2ee523a2206206994597c13d831ec7",
+  USDC: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+  WETH: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  DAI: "0x6b175474e89094c44da98b954eedeac495271d0f",
+  WBTC: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+  USDS: "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
 } as const;
 
 export const addressToSymbol = {
