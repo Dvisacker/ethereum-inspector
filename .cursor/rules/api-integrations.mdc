@@ -1,0 +1,71 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# API Integrations Guide
+
+## Overview
+This project integrates with multiple external APIs to provide comprehensive wallet analysis. Each API serves a specific purpose in the analysis pipeline.
+
+## Etherscan Integration
+
+### Purpose
+[etherscan.ts](mdc:etherscan.ts) provides access to Ethereum transaction data and contract information.
+
+### Key Functionality
+- **Transaction History**: Fetch complete transaction history for addresses
+- **Contract Names**: Retrieve verified contract names and information
+
+### Usage Patterns
+```typescript
+const etherscan = new EtherscanClient(config.get('etherscanApiKey'));
+const transactions = await etherscan.getTransactions(address);
+const contractName = await etherscan.getContractName(contractAddress);
+```
+
+### Rate Limiting
+- Respects Etherscan's rate limits (5 calls/second for free tier)
+- Implements exponential backoff for failed requests
+- Caches responses to minimize API calls
+
+## Arkham Intelligence Integration
+
+### Purpose
+[arkham.ts](mdc:arkham.ts) provides entity labeling and wallet intelligence data.
+
+### Key Functionality
+- **Entity Search**: Search for entities by name or identifier
+- **Address Labeling**: Get entity and label information for addresses
+
+### Usage Patterns
+```typescript
+const arkham = new ArkhamClient(config.get('arkhamCookie'));
+const searchResults = await arkham.searchEntities(query);
+const addressInfo = await arkham.fetchAddress(address);
+const entity = await arkham.fetchEntity("galaxy");
+```
+
+## Hypersync Integration
+
+### Purpose
+[hypersync.ts](mdc:hypersync.ts) queries blockchain data efficiently
+
+### Key Functionality
+
+- **ETH and token transfers**: 
+- **Real-time Data**: Access to latest blockchain state
+- **Blocks, Logs and Decoded Logs**: Returns all blocks, transactions, logs and decoded logs for a given related query
+
+
+### Usage Patterns
+```typescript
+const hypersync = new HypersyncClient();
+const transfers = await hypersync.getTransfers(address, fromBlock, toBlock);
+const transfersFrom = await hypersync.getTransactionsFrom(addresses)
+```
+
+## EVM Queries
+
+### Purpose
+[evm.ts](mdc:evm.ts) contains multiple functions wrapping the JSON-RPC ethereum functionality
