@@ -384,10 +384,11 @@ export class HyperSync {
     return this.executeQuery(query);
   }
 
-  async parseERC20Logs(
+  async parseTransfers(
     logs: Log[],
     decodedLogs: DecodedEvent[],
     transactions: Transaction[],
+    blocks: Block[],
     networkId: NetworkId
   ) {
     const transfers: Transfer[] = [];
@@ -398,8 +399,9 @@ export class HyperSync {
       const transaction = transactions.find(
         (tx) => tx.hash === log.transactionHash
       );
+      const block = blocks.find((b) => b.number === transaction?.blockNumber);
 
-      if (!decodedLog || !log) {
+      if (!decodedLog || !log || !block) {
         continue;
       }
 
@@ -423,6 +425,7 @@ export class HyperSync {
         symbol,
         txHash: transaction?.hash || "",
         blockNumber: transaction?.blockNumber || 0,
+        timestamp: block.timestamp || 0,
       });
     }
 

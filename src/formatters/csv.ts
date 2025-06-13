@@ -6,7 +6,6 @@ import * as XLSX from "xlsx-js-style";
 import { getTokenDecimalsByAddress, NetworkId } from "../constants";
 import { Transfer } from "../types";
 
-// Define a type for contract info based on analyzeRelatedWallets output
 export interface ContractInfo {
   address: string;
   txCount: number;
@@ -243,6 +242,7 @@ export class XLSXExporter {
       { v: "Amount (formatted)", s: headerStyle },
       { v: "Tx Hash", s: headerStyle },
       { v: "Block #", s: headerStyle },
+      { v: "Date", s: headerStyle },
     ]);
 
     for (const t of transfers) {
@@ -273,6 +273,11 @@ export class XLSXExporter {
           l: { Target: `https://etherscan.io/tx/${t.txHash}` },
         },
         t.blockNumber,
+        new Date(t.timestamp * 1000).toLocaleString("en-US", {
+          timeZone: "UTC",
+          dateStyle: "short",
+          timeStyle: "medium",
+        }),
       ]);
     }
     const ws = XLSX.utils.aoa_to_sheet(rows);

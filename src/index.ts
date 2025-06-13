@@ -170,14 +170,17 @@ program
           let { transactions, logs, blocks, decodedLogs } =
             await hyperSync.getOutflowsAndWhitelistedInflows([address]);
 
-          const parsedLogs = await hyperSync.parseERC20Logs(
+          let transfers = await hyperSync.parseTransfers(
             logs,
             decodedLogs,
             transactions,
+            blocks,
             NETWORKS.MAINNET
           );
 
-          csvExporter.writeTransfersSheet(parsedLogs);
+          transfers = transfers.sort((a, b) => b.timestamp - a.timestamp);
+
+          csvExporter.writeTransfersSheet(transfers);
         }
 
         csvExporter.exportAnalysisXLSX();
