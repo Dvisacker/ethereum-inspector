@@ -5,6 +5,7 @@ import * as path from "path";
 import * as XLSX from "xlsx-js-style";
 import { getTokenDecimalsByAddress, NetworkId } from "../constants";
 import { Transfer } from "../types";
+import { getLightRedGradient, shortAddr, shortHash } from "../helpers";
 
 export interface ContractInfo {
   address: string;
@@ -40,16 +41,6 @@ const cellBorder = {
     right: { style: "thin", color: { rgb: "000000" } },
   },
 };
-
-// Helper to shorten addresses and hashes
-function shortAddr(addr: string) {
-  if (!addr) return "";
-  return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
-}
-function shortHash(hash: string) {
-  if (!hash) return "";
-  return hash.length > 14 ? `${hash.slice(0, 10)}...${hash.slice(-4)}` : hash;
-}
 
 export class XLSXExporter {
   private workbook: XLSX.WorkBook;
@@ -97,18 +88,21 @@ export class XLSXExporter {
       { v: "Count", s: headerStyle },
       { v: "Percentage", s: headerStyle },
     ]);
-    Object.entries(analysis.hourlyDistribution)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .forEach(([hour, count]) => {
-        const percentage = ((count / analysis.totalTransactions) * 100).toFixed(
-          2
-        );
-        rows.push([
-          { v: `${hour}:00`, s: cellBorder },
-          { v: count, s: cellBorder },
-          { v: `${percentage}%`, s: cellBorder },
-        ]);
-      });
+    const hourlyEntries = Object.entries(analysis.hourlyDistribution).sort(
+      ([a], [b]) => Number(a) - Number(b)
+    );
+    const maxHourly = Math.max(...hourlyEntries.map(([_, count]) => count));
+    hourlyEntries.forEach(([hour, count]) => {
+      const percentage = (count / analysis.totalTransactions) * 100;
+      const percentStr = percentage.toFixed(2) + "%";
+      const fill = { fgColor: getLightRedGradient((10 * percentage) / 100) };
+
+      rows.push([
+        { v: `${hour}:00`, s: { ...cellBorder, fill } },
+        { v: count, s: { ...cellBorder, fill } },
+        { v: percentStr, s: { ...cellBorder, fill } },
+      ]);
+    });
     rows.push([]);
 
     rows.push([{ v: "Daily Distribution", s: headerStyle }]);
@@ -116,14 +110,18 @@ export class XLSXExporter {
       { v: "Day", s: headerStyle },
       { v: "Count", s: headerStyle },
     ]);
-    Object.entries(analysis.dailyDistribution)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .forEach(([day, count]) => {
-        rows.push([
-          { v: day, s: cellBorder },
-          { v: count, s: cellBorder },
-        ]);
-      });
+    const dailyEntries = Object.entries(analysis.dailyDistribution).sort(
+      ([a], [b]) => Number(a) - Number(b)
+    );
+    const maxDaily = Math.max(...dailyEntries.map(([_, count]) => count));
+    dailyEntries.forEach(([day, count]) => {
+      const percent = count / maxDaily;
+      const fill = { fgColor: getLightRedGradient(percent) };
+      rows.push([
+        { v: day, s: { ...cellBorder, fill } },
+        { v: count, s: { ...cellBorder, fill } },
+      ]);
+    });
     rows.push([]);
 
     rows.push([{ v: "Monthly Distribution", s: headerStyle }]);
@@ -131,14 +129,18 @@ export class XLSXExporter {
       { v: "Month", s: headerStyle },
       { v: "Count", s: headerStyle },
     ]);
-    Object.entries(analysis.monthlyDistribution)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .forEach(([month, count]) => {
-        rows.push([
-          { v: month, s: cellBorder },
-          { v: count, s: cellBorder },
-        ]);
-      });
+    const monthlyEntries = Object.entries(analysis.monthlyDistribution).sort(
+      ([a], [b]) => Number(a) - Number(b)
+    );
+    const maxMonthly = Math.max(...monthlyEntries.map(([_, count]) => count));
+    monthlyEntries.forEach(([month, count]) => {
+      const percent = count / maxMonthly;
+      const fill = { fgColor: getLightRedGradient(percent) };
+      rows.push([
+        { v: month, s: { ...cellBorder, fill } },
+        { v: count, s: { ...cellBorder, fill } },
+      ]);
+    });
     rows.push([]);
 
     rows.push([{ v: "Yearly Distribution", s: headerStyle }]);
@@ -283,6 +285,59 @@ export class XLSXExporter {
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = TRANSFERS_COL_WIDTHS.map((wch) => ({ wch }));
     XLSX.utils.book_append_sheet(this.workbook, ws, "Transfers");
+  }
+
+  writeTransactionsSheet(transactions: any[]) {
+    // Sort by timestamp descending
+    transactions = transactions.sort((a, b) => b.timestamp - a.timestamp);
+    const rows: any[][] = [];
+    rows.push([
+      { v: "Tx Hash", s: headerStyle },
+      { v: "From", s: headerStyle },
+      { v: "To", s: headerStyle },
+      { v: "Value", s: headerStyle },
+      { v: "Block #", s: headerStyle },
+      { v: "Timestamp", s: headerStyle },
+    ]);
+    for (const tx of transactions) {
+      rows.push([
+        {
+          v: tx.hash,
+          l: { Target: `https://etherscan.io/tx/${tx.hash}` },
+          s: cellBorder,
+        },
+        {
+          v: tx.from,
+          l: { Target: `https://etherscan.io/address/${tx.from}` },
+          s: cellBorder,
+        },
+        {
+          v: tx.to,
+          l: { Target: `https://etherscan.io/address/${tx.to}` },
+          s: cellBorder,
+        },
+        { v: tx.value, s: cellBorder },
+        { v: tx.blockNumber, s: cellBorder },
+        {
+          v: new Date(tx.timestamp * 1000).toLocaleString("en-US", {
+            timeZone: "UTC",
+            dateStyle: "short",
+            timeStyle: "medium",
+          }),
+          s: cellBorder,
+        },
+      ]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 66 }, // Tx Hash
+      { wch: 44 }, // From
+      { wch: 44 }, // To
+      { wch: 24 }, // Value
+      { wch: 14 }, // Block #
+      { wch: 32 }, // Timestamp
+    ];
+    XLSX.utils.book_append_sheet(this.workbook, ws, "Transactions");
   }
 
   exportAnalysisXLSX(outputPath?: string) {

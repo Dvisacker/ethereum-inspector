@@ -105,3 +105,24 @@ export function createThrottledFunction<T>(
     });
   };
 }
+
+// Helper to shorten addresses and hashes
+export function shortAddr(addr: string) {
+  if (!addr) return "";
+  return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
+}
+export function shortHash(hash: string) {
+  if (!hash) return "";
+  return hash.length > 14 ? `${hash.slice(0, 10)}...${hash.slice(-4)}` : hash;
+}
+
+export function getLightRedGradient(percent: number) {
+  // percent: 0 to 1
+  // White (#FFFFFF) to light red (#FFCCCC)
+  const r = 255;
+  const g = Math.round(255 - percent * (255 - 204)); // 255 to 204
+  const b = Math.round(255 - percent * (255 - 204)); // 255 to 204
+  // Convert to 2-digit hex and concatenate
+  const hex = (n: number) => n.toString(16).padStart(2, "0").toUpperCase();
+  return { rgb: `${hex(r)}${hex(g)}${hex(b)}` };
+}
