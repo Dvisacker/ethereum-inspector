@@ -1,9 +1,11 @@
+import {
+  Block,
+  DecodedEvent,
+  Log,
+  Transaction,
+} from "@envio-dev/hypersync-client";
 import { ProxyType } from "./etherscan";
-
-export interface Transfer {
-  fromAddress: Address;
-  toAddress: Address;
-}
+import { NetworkId } from "./constants";
 
 export interface Address {
   address: string;
@@ -21,7 +23,10 @@ export interface Label {
 }
 
 export interface TransferResponse {
-  transfers: Transfer[];
+  transfers: {
+    fromAddress: Address[];
+    toAddress: Address[];
+  }[];
 }
 
 export interface LabelResult {
@@ -39,4 +44,22 @@ export interface ContractInfo {
   isProxy: boolean;
   proxyType: ProxyType | undefined;
   implementationName: string | undefined;
+}
+
+export interface HyperSyncData {
+  transactions: Transaction[];
+  logs: Log[];
+  decodedLogs: DecodedEvent[];
+  blocks: Block[];
+}
+
+export interface Transfer {
+  from: string;
+  to: string;
+  amount: string;
+  tokenAddress: string;
+  networkId: NetworkId;
+  symbol: string;
+  txHash: string;
+  blockNumber: number;
 }
