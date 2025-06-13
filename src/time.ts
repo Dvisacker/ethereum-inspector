@@ -1,3 +1,5 @@
+import { Transaction } from "ethers";
+
 // Find busiest periods
 const findBusiestPeriod = (distribution: { [key: number]: number }) => {
   let maxCount = 0;
@@ -124,6 +126,24 @@ function inferTimezoneRegion(timestampsUTC: Date[]): {
     region: bestRegion,
     confidence: bestScore,
   };
+}
+
+function compareTimeOfDayDistributions(
+  dist1: number[],
+  dist2: number[]
+): number {
+  // Calculate cosine similarity between distributions
+  let dotProduct = 0;
+  let norm1 = 0;
+  let norm2 = 0;
+
+  for (let i = 0; i < 24; i++) {
+    dotProduct += dist1[i] * dist2[i];
+    norm1 += dist1[i] * dist1[i];
+    norm2 += dist2[i] * dist2[i];
+  }
+
+  return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
 }
 
 export { findBusiestPeriod, find6HourTimeframes, inferTimezoneRegion };

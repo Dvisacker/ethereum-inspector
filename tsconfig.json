@@ -112,6 +112,6 @@
     "skipLibCheck": true,
     "moduleResolution": "node"
   },
-  "include": ["*.ts", "formatters/terminal.ts", "formatters/csv.ts"],
+  "include": ["./src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
