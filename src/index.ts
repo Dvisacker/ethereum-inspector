@@ -9,7 +9,7 @@ import chalk from "chalk";
 import { config } from "./config";
 import { TerminalFormatter } from "./formatters/terminal";
 import { XLSXExporter } from "./formatters/csv";
-import { HyperSync } from "./hypersync";
+import { HyperSync, parseTransactions } from "./hypersync";
 import { NETWORKS } from "./constants";
 
 const program = new Command();
@@ -170,14 +170,24 @@ program
           let { transactions, logs, blocks, decodedLogs } =
             await hyperSync.getOutflowsAndWhitelistedInflows([address]);
 
-          const parsedLogs = await hyperSync.parseERC20Logs(
-            logs,
-            decodedLogs,
-            transactions,
-            NETWORKS.MAINNET
-          );
+          if (answers2.action.includes("transfers")) {
+            let transfers = await hyperSync.parseTransfers(
+              logs,
+              decodedLogs,
+              transactions,
+              blocks,
+              NETWORKS.MAINNET
+            );
+            csvExporter.writeTransfersSheet(transfers);
+          }
 
-          csvExporter.writeTransfersSheet(parsedLogs);
+          if (answers2.action.includes("transactions")) {
+            let parsedTransactions = await parseTransactions(
+              transactions,
+              blocks
+            );
+            csvExporter.writeTransactionsSheet(parsedTransactions);
+          }
         }
 
         csvExporter.exportAnalysisXLSX();

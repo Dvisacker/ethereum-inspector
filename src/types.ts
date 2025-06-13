@@ -62,4 +62,5 @@ export interface Transfer {
   symbol: string;
   txHash: string;
   blockNumber: number;
+  timestamp: number;
 }

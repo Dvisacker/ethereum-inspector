@@ -33,6 +33,32 @@ export interface TransactionTimingAnalysis {
   busiestMonth: { month: number; count: number };
 }
 
+export interface TransactionWithTimestamp extends Transaction {
+  timestamp: number;
+}
+
+export function parseTransactions(
+  transactions: Transaction[],
+  blocks: Block[]
+): TransactionWithTimestamp[] {
+  const blockTimestampMap = new Map<number, number>();
+  for (const block of blocks) {
+    if (
+      typeof block.number === "number" &&
+      typeof block.timestamp === "number"
+    ) {
+      blockTimestampMap.set(block.number, block.timestamp);
+    }
+  }
+  return transactions.map((tx) => ({
+    ...tx,
+    timestamp:
+      typeof tx.blockNumber === "number"
+        ? blockTimestampMap.get(tx.blockNumber) || 0
+        : 0,
+  }));
+}
+
 export class HyperSync {
   private client: HypersyncClient;
   private decoder: Decoder;
@@ -384,10 +410,11 @@ export class HyperSync {
     return this.executeQuery(query);
   }
 
-  async parseERC20Logs(
+  async parseTransfers(
     logs: Log[],
     decodedLogs: DecodedEvent[],
     transactions: Transaction[],
+    blocks: Block[],
     networkId: NetworkId
   ) {
     const transfers: Transfer[] = [];
@@ -398,8 +425,9 @@ export class HyperSync {
       const transaction = transactions.find(
         (tx) => tx.hash === log.transactionHash
       );
+      const block = blocks.find((b) => b.number === transaction?.blockNumber);
 
-      if (!decodedLog || !log) {
+      if (!decodedLog || !log || !block) {
         continue;
       }
 
@@ -423,6 +451,7 @@ export class HyperSync {
         symbol,
         txHash: transaction?.hash || "",
         blockNumber: transaction?.blockNumber || 0,
+        timestamp: block.timestamp || 0,
       });
     }
 
