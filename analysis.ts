@@ -1,4 +1,4 @@
-import { ETHER, HyperSync } from "./hypersync";
+import { HyperSync } from "./hypersync";
 import { defaultProvider, isSmartContract } from "./evm";
 import { Transaction } from "@envio-dev/hypersync-client";
 import { find6HourTimeframes, inferTimezoneRegion } from "./time";
@@ -8,6 +8,9 @@ import { EtherscanClient, ProxyType } from "./etherscan";
 import { safePromise } from "./helpers";
 import { config } from "./config";
 import { ethers } from "ethers";
+import { ContractInfo } from "./formatters/csv";
+import { HyperSyncData } from "./types";
+import { ETHER } from "./constants";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -36,6 +39,11 @@ export interface RelatedWalletInfo {
   label: string;
 }
 
+export interface RelatedWalletWithFundingInfo extends RelatedWalletInfo {
+  fundingWallet?: string;
+  fundingWalletEntity?: string;
+}
+
 export interface RelatedWalletTx {
   address: string;
   type: "sender" | "receiver";
@@ -61,16 +69,15 @@ export class TransactionAnalyzer {
    * @returns Promise<RelatedWallet[]> List of related EOA wallets
    */
   async getRelatedWallets(
+    hyperSyncData: HyperSyncData,
     address: string,
     fromBlock?: number,
     toBlock?: number
   ): Promise<{
-    eoas: { address: string; txCount: number }[];
+    wallets: { address: string; txCount: number }[];
     contracts: { address: string; txCount: number }[];
   }> {
-    // Get all transfers involving the address
-    const { transactions, logs, blocks } =
-      await this.hyperSync.getOutflowsAndWhitelistedInflows([address]);
+    const { transactions, logs, blocks } = hyperSyncData;
 
     // Create block number to timestamp mapping
     const blockTimestamps = new Map<number, number>();
@@ -80,11 +87,10 @@ export class TransactionAnalyzer {
       }
     });
 
-    // Get related transactions and collect unique addresses
     const relatedAddresses = new Set<string>();
     const relatedTxs: RelatedWalletTx[] = [];
 
-    // Process regular transactions
+    // 1. Process regular ETH transfers
     for (const tx of transactions) {
       if (!tx.blockNumber) continue;
       if (fromBlock && tx.blockNumber < fromBlock) continue;
@@ -109,7 +115,7 @@ export class TransactionAnalyzer {
         tx.from !== address &&
         tx.value !== BigInt(0) &&
         tx.value &&
-        Number(tx.value) > config.get("spamTxEthThreshold") * ETHER // weed out spam transactions (TODO: make this configurable)
+        Number(tx.value) > config.get("spamTxEthThreshold") * ETHER // weed out spam transactions
       ) {
         relatedAddresses.add(tx.from);
         relatedTxs.push({
@@ -128,7 +134,7 @@ export class TransactionAnalyzer {
       }
     }
 
-    // ERC20 transfers
+    // 2. Process ERC20 transfers
     for (const log of logs) {
       if (!log.blockNumber || !log.topics || log.topics.length < 3) continue;
 
@@ -162,7 +168,7 @@ export class TransactionAnalyzer {
       txByAddressCount.set(tx.address, currentCount + 1);
     }
 
-    const eoas: { address: string; txCount: number }[] = [];
+    const wallets: { address: string; txCount: number }[] = [];
     const contracts: { address: string; txCount: number }[] = [];
     for (const address of relatedAddresses) {
       const txCount = txByAddressCount.get(address) || 0;
@@ -172,36 +178,34 @@ export class TransactionAnalyzer {
       if (isContract) {
         contracts.push({ address, txCount });
       } else {
-        eoas.push({ address, txCount });
+        wallets.push({ address, txCount });
       }
     }
 
-    return { eoas, contracts };
+    return { wallets, contracts };
   }
 
   async analyzeRelatedWallets(address: string): Promise<{
-    wallets: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-    }[];
-    contracts: {
-      address: string;
-      txCount: number;
-      entity: string;
-      label: string;
-      name: string;
-      isProxy: boolean;
-      proxyType: ProxyType | undefined;
-      implementationName: string | undefined;
-    }[];
+    hyperSyncData: HyperSyncData;
+    wallets: RelatedWalletInfo[];
+    contracts: ContractInfo[];
   }> {
-    let { eoas: wallets, contracts } = await this.getRelatedWallets(address);
+    let hyperSyncData = await this.hyperSync.getOutflowsAndWhitelistedInflows([
+      address,
+    ]);
+
+    let { wallets, contracts } = await this.getRelatedWallets(
+      hyperSyncData,
+      address
+    );
 
     if (wallets.length === 0 && contracts.length === 0) {
       console.log("No related wallets found");
-      return { wallets: [], contracts: [] };
+      return {
+        hyperSyncData,
+        wallets: [],
+        contracts: [],
+      };
     }
 
     wallets = wallets.sort((a, b) => b.txCount - a.txCount);
@@ -268,21 +272,15 @@ export class TransactionAnalyzer {
       .slice(0, maxContracts);
 
     return {
+      hyperSyncData,
       wallets: walletInfos,
       contracts: contractInfos,
     };
   }
 
-  async getFundingWallets(addresses: string[]): Promise<
-    Map<
-      string,
-      {
-        address: string;
-        entity: string;
-        label: string;
-      }
-    >
-  > {
+  async getFundingWallets(
+    wallets: RelatedWalletInfo[]
+  ): Promise<RelatedWalletWithFundingInfo[]> {
     const fundingWallets = new Map<
       string,
       {
@@ -292,25 +290,24 @@ export class TransactionAnalyzer {
       }
     >();
 
-    // Fetch all first transactions and address info in parallel with error handling
+    // Fetch all first transactions and address info in parallel
     const [firstTransactions, addressInfos] = await Promise.all([
       Promise.all(
-        addresses.map((address) =>
+        wallets.map((wallet) =>
           safePromise(
-            this.hyperSync.getAddressFirstReceivedTransaction(address)
+            this.hyperSync.getAddressFirstReceivedTransaction(wallet.address)
           )
         )
       ),
       Promise.all(
-        addresses.map((address) =>
-          safePromise(this.arkham.fetchAddress(address))
+        wallets.map((wallet) =>
+          safePromise(this.arkham.fetchAddress(wallet.address))
         )
       ),
     ]);
 
-    // Process results
-    for (let i = 0; i < addresses.length; i++) {
-      const address = addresses[i];
+    for (let i = 0; i < wallets.length; i++) {
+      const wallet = wallets[i];
       const tx = firstTransactions[i];
       const addressInfo = addressInfos[i];
 
@@ -321,7 +318,7 @@ export class TransactionAnalyzer {
         tx.transactions[0].from &&
         addressInfo
       ) {
-        fundingWallets.set(address, {
+        fundingWallets.set(wallet.address, {
           address: tx.transactions[0].from,
           entity: addressInfo.arkhamEntity?.name || "Unknown",
           label: addressInfo.arkhamLabel?.name || "Unknown",
@@ -329,7 +326,16 @@ export class TransactionAnalyzer {
       }
     }
 
-    return fundingWallets;
+    const walletsWithFunding = wallets.map((wallet, index) => ({
+      ...wallet,
+      address: wallet.address,
+      fundingWallet: fundingWallets.get(wallets[index].address)?.address,
+      fundingWalletEntity: `${
+        fundingWallets.get(wallets[index].address)?.entity
+      } (${fundingWallets.get(wallets[index].address)?.label})`,
+    }));
+
+    return walletsWithFunding;
   }
 
   /**
@@ -413,120 +419,6 @@ export class TransactionAnalyzer {
       busiest6Hour,
       leastBusy6Hour,
       inferredTimezone: inferredTimezoneRegion,
-    };
-  }
-
-  /**
-   * Formats the analysis results into a human-readable string
-   * @param analysis The analysis results to format
-   * @returns string Formatted analysis results
-   */
-  formatAnalysis(analysis: TransactionTimingAnalysis): {
-    summary: string;
-    hourlyDistribution: { hour: string; count: number }[];
-    dailyDistribution: { day: string; count: number }[];
-    monthlyDistribution: { month: string; count: number }[];
-    yearlyDistribution: { year: string; count: number }[];
-  } {
-    const days = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-
-    const format6HourWindow = (startHour: number) => {
-      const endHour = (startHour + 6) % 24;
-      return `${startHour.toString().padStart(2, "0")}:00 - ${endHour
-        .toString()
-        .padStart(2, "0")}:00 UTC`;
-    };
-
-    let timezoneInfo = "";
-
-    if (analysis.inferredTimezone) {
-      const { region, confidence } = analysis.inferredTimezone;
-      timezoneInfo = `- Region: ${region} (${(confidence * 100).toFixed(
-        1
-      )}% confidence)`;
-    }
-
-    const summary = `
-Total Transactions: ${analysis.totalTransactions}
-Average Transactions per day: ${analysis.averageTransactionsPerDay.toFixed(2)}
-Busiest Periods:
-- Hour: ${analysis.busiestHour.hour}:00 UTC (${
-      analysis.busiestHour.count
-    } transactions)
-- Day: ${days[analysis.busiestDay.day]} (${
-      analysis.busiestDay.count
-    } transactions)
-- Month: ${months[analysis.busiestMonth.month]} (${
-      analysis.busiestMonth.count
-    } transactions)
-- Year: ${analysis.busiestYear.year} (${
-      analysis.busiestYear.count
-    } transactions)
-Timezone Analysis:
-- "Work" Window (Most active): ${format6HourWindow(
-      analysis.busiest6Hour.startHour
-    )} (${analysis.busiest6Hour.count} transactions)
-- "Sleep" Window (Least active): ${format6HourWindow(
-      analysis.leastBusy6Hour.startHour
-    )} (${analysis.leastBusy6Hour.count} transactions)
-${timezoneInfo}`;
-
-    const hourlyDistribution = Object.entries(analysis.hourlyDistribution)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([hour, count]) => ({
-        hour: `${hour.toString().padStart(2, "0")}:00`,
-        count,
-      }));
-
-    const dailyDistribution = Object.entries(analysis.dailyDistribution)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([day, count]) => ({
-        day: days[Number(day)],
-        count,
-      }));
-
-    const monthlyDistribution = Object.entries(analysis.monthlyDistribution)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([month, count]) => ({
-        month: months[Number(month)],
-        count,
-      }));
-
-    const yearlyDistribution = Object.entries(analysis.yearlyDistribution)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([year, count]) => ({
-        year,
-        count,
-      }));
-
-    return {
-      summary,
-      hourlyDistribution,
-      dailyDistribution,
-      monthlyDistribution,
-      yearlyDistribution,
     };
   }
 }

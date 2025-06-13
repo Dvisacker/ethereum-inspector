@@ -31,7 +31,6 @@ describe("ArkhamClient", () => {
     }, 2000);
   });
 
-  // Test fetchEntity endpoint
   describe("fetchEntity", () => {
     it('should return entity information for "dcfgod"', async () => {
       const entity = await arkham.fetchEntity("dcfgod");
@@ -77,8 +76,8 @@ describe("ArkhamClient", () => {
         const transfer = transfers.transfers[0];
         expect(transfer.fromAddress).toBeDefined();
         expect(transfer.toAddress).toBeDefined();
-        expect(transfer.fromAddress.address).toBeDefined();
-        expect(transfer.toAddress.address).toBeDefined();
+        expect(transfer.fromAddress[0].address).toBeDefined();
+        expect(transfer.toAddress[0].address).toBeDefined();
       }
     }, 30000);
   });
@@ -110,7 +109,6 @@ describe("ArkhamClient", () => {
 
       const startTime = performance.now();
 
-      // Make parallel requests for address info
       const results = await Promise.all(
         addresses.map((address) => client.fetchAddress(address))
       );
@@ -118,11 +116,9 @@ describe("ArkhamClient", () => {
       const endTime = performance.now();
       const totalTime = endTime - startTime;
 
-      // Verify results
       expect(results).toHaveLength(addresses.length);
       expect(results.every((response) => response.address)).toBe(true);
 
-      // Verify timing
       // With 4 addresses and 2 concurrent requests, we expect 2 batches
       // Each batch should take at least 1000ms (minTimeBetweenRequests)
       // So total time should be at least 2000ms
@@ -136,7 +132,7 @@ describe("ArkhamClient", () => {
           label: r.arkhamLabel?.name,
         })),
       });
-    }, 30000); // 30 second timeout
+    }, 30000);
 
     it("should handle mixed API calls with throttling", async () => {
       const client = new ArkhamClient(ARKHAM_COOKIE, {
@@ -159,7 +155,6 @@ describe("ArkhamClient", () => {
       const endTime = performance.now();
       const totalTime = endTime - startTime;
 
-      // Verify results
       expect(entityInfo.id).toBe(entityId);
       expect(addressInfo.address).toBe(address);
       expect(Array.isArray(transfers.transfers)).toBe(true);
@@ -170,6 +165,6 @@ describe("ArkhamClient", () => {
         addressLabel: addressInfo.arkhamLabel?.name,
         transferCount: transfers.transfers.length,
       });
-    }, 30000); // 30 second timeout
+    }, 30000);
   });
 });

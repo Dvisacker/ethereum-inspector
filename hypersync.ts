@@ -11,30 +11,16 @@ import {
   Query,
 } from "@envio-dev/hypersync-client";
 import { addressToTopic } from "./helpers";
+import {
+  TOKENS_BY_NETWORK,
+  getTokenSymbolByAddress,
+  NetworkId,
+  NETWORKS,
+} from "./constants";
+import { Transfer } from "./types";
 
 const transferTopic =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-
-// TODO: Add more, make this multichain
-export const WHITELISTED_TOKENS = {
-  USDT: "0xdac17f958d2ee523a2206206994597c13d831ec7", // Ethereum Mainnet USDT
-  USDC: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // Ethereum Mainnet USDC
-  WETH: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // Ethereum Mainnet WETH
-  DAI: "0x6b175474e89094c44da98b954eedeac495271d0f", // Ethereum Mainnet DAI
-  WBTC: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", // Ethereum Mainnet WBTC
-  USDS: "0xdc035d45d973e3ec169d2276ddab16f1e407384f", // Ethereum Mainnet USDS
-} as const;
-
-export const addressToSymbol = {
-  [WHITELISTED_TOKENS.USDT]: "USDT",
-  [WHITELISTED_TOKENS.USDC]: "USDC",
-  [WHITELISTED_TOKENS.WETH]: "WETH",
-  [WHITELISTED_TOKENS.DAI]: "DAI",
-  [WHITELISTED_TOKENS.WBTC]: "WBTC",
-  [WHITELISTED_TOKENS.USDS]: "USDS",
-} as const;
-
-export const ETHER = 1e18;
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -177,7 +163,7 @@ export class HyperSync {
 
     const tokenAddresses = tokenWhitelist
       ? tokenWhitelist
-      : Object.values(WHITELISTED_TOKENS);
+      : Object.keys(TOKENS_BY_NETWORK[NETWORKS.MAINNET]);
 
     const query = {
       fromBlock: 0,
@@ -365,7 +351,7 @@ export class HyperSync {
     const addressTopicFilter = addresses.map(addressToTopic);
     const tokenAddresses = token_whitelist
       ? token_whitelist
-      : Object.values(WHITELISTED_TOKENS);
+      : Object.keys(TOKENS_BY_NETWORK[NETWORKS.MAINNET]);
 
     const query = {
       fromBlock: 0,
@@ -401,18 +387,21 @@ export class HyperSync {
   async parseERC20Logs(
     logs: Log[],
     decodedLogs: DecodedEvent[],
-    addressToSymbol: Record<string, string>
+    transactions: Transaction[],
+    networkId: NetworkId
   ) {
-    const transfers: {
-      from: string;
-      to: string;
-      amount: bigint;
-      symbol: string;
-    }[] = [];
+    const transfers: Transfer[] = [];
 
     for (let i = 0; i < decodedLogs.length; i++) {
       const decodedLog = decodedLogs[i];
       const log = logs[i];
+      const transaction = transactions.find(
+        (tx) => tx.hash === log.transactionHash
+      );
+
+      if (!decodedLog || !log) {
+        continue;
+      }
 
       const tokenAddress = log.address;
       const from = decodedLog.indexed[0].val as string;
@@ -423,13 +412,17 @@ export class HyperSync {
         continue;
       }
 
-      const symbol = addressToSymbol[tokenAddress];
+      const symbol = getTokenSymbolByAddress(tokenAddress, networkId) || "";
 
       transfers.push({
         from: from,
         to: to,
-        amount: BigInt(amount),
+        networkId: networkId,
+        tokenAddress: tokenAddress,
+        amount: amount.toString(),
         symbol,
+        txHash: transaction?.hash || "",
+        blockNumber: transaction?.blockNumber || 0,
       });
     }
 
