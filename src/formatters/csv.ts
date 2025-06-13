@@ -19,7 +19,7 @@ export interface ContractInfo {
 }
 
 const TIMING_ANALYSIS_COL_WIDTHS = [30, 20, 20];
-const RELATED_WALLETS_COL_WIDTHS = [44, 18, 22, 32];
+const RELATED_WALLETS_COL_WIDTHS = [44, 18, 22, 32, 12, 12];
 const CONTRACTS_COL_WIDTHS = [44, 18, 22, 32, 32, 12, 18, 32];
 const TRANSFERS_COL_WIDTHS = [44, 44, 44, 14, 24, 66, 14];
 
@@ -166,6 +166,8 @@ export class XLSXExporter {
       { v: "Transaction Count", s: headerStyle },
       { v: "Entity", s: headerStyle },
       { v: "Label", s: headerStyle },
+      { v: "Debank", s: headerStyle },
+      { v: "Arkham", s: headerStyle },
     ]);
     wallets.forEach((wallet) => {
       rows.push([
@@ -176,6 +178,16 @@ export class XLSXExporter {
         wallet.txCount,
         wallet.entity,
         wallet.label,
+        {
+          v: "DEB",
+          l: { Target: `https://debank.com/profile/${wallet.address}` },
+        },
+        {
+          v: "ARK",
+          l: {
+            Target: `https://intel.arkm.com/visualizer/entity/${wallet.address}`,
+          },
+        },
       ]);
     });
     return rows;
