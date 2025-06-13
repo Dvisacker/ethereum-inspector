@@ -33,6 +33,32 @@ export interface TransactionTimingAnalysis {
   busiestMonth: { month: number; count: number };
 }
 
+export interface TransactionWithTimestamp extends Transaction {
+  timestamp: number;
+}
+
+export function parseTransactions(
+  transactions: Transaction[],
+  blocks: Block[]
+): TransactionWithTimestamp[] {
+  const blockTimestampMap = new Map<number, number>();
+  for (const block of blocks) {
+    if (
+      typeof block.number === "number" &&
+      typeof block.timestamp === "number"
+    ) {
+      blockTimestampMap.set(block.number, block.timestamp);
+    }
+  }
+  return transactions.map((tx) => ({
+    ...tx,
+    timestamp:
+      typeof tx.blockNumber === "number"
+        ? blockTimestampMap.get(tx.blockNumber) || 0
+        : 0,
+  }));
+}
+
 export class HyperSync {
   private client: HypersyncClient;
   private decoder: Decoder;
