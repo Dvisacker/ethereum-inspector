@@ -9,6 +9,8 @@ import chalk from "chalk";
 import { config } from "./config";
 import { TerminalFormatter } from "./formatters/terminal";
 import { XLSXExporter } from "./formatters/csv";
+import { HyperSync } from "./hypersync";
+import { NETWORKS } from "./constants";
 
 const program = new Command();
 
@@ -23,133 +25,166 @@ program
   )
   .action(
     async (search: string, options: { relatedWalletsThreshold: string }) => {
-      const arkham = new ArkhamClient(config.get("arkhamCookie"));
-      if (options.relatedWalletsThreshold) {
-        config.set("relatedWalletsThreshold", +options.relatedWalletsThreshold);
-      }
-
-      const csvExporter = new XLSXExporter();
-
-      let address: string;
-
-      // if the search string is not an ethereum address, fetch the entity from arkham 
-      // and suggest related addresses
-      if (!isAddress(search)) {
-        const results = await arkham.searchEntities(search);
-
-        const addresses = results.arkhamAddresses.map((address) => ({
-          address: address.address,
-          chain: address.chain,
-          entity: address.arkhamEntity?.name,
-          label: address.arkhamLabel?.name,
-        }));
-
-        const answers = await inquirer.prompt({
-          type: "list",
-          name: "entity",
-          message: chalk.green("Select a wallet"),
-          choices: addresses.map((address) => ({
-            name: `${chalk.green(address.entity)} (${chalk.gray(
-              address.address
-            )})`,
-            value: address.address,
-          })),
-        });
-
-        const entity = addresses.find(
-          (address) => address.address === answers.entity
-        );
-
-        if (!entity) {
-          console.error(chalk.red("Entity not found"));
-          process.exit(1);
+      try {
+        const arkham = new ArkhamClient(config.get("arkhamCookie"));
+        if (options.relatedWalletsThreshold) {
+          config.set(
+            "relatedWalletsThreshold",
+            +options.relatedWalletsThreshold
+          );
         }
 
-        address = entity.address.toLowerCase();
-      } else {
-        address = search.toLowerCase();
-      }
+        const csvExporter = new XLSXExporter();
 
-      const answers2 = await inquirer.prompt({
-        type: "checkbox",
-        name: "action",
-        message: chalk.green("What do you want to do"),
-        default: ["timing", "related", "contracts"],
-        choices: [
-          { name: chalk.green("Timing Analysis"), value: "timing" },
-          { name: chalk.green("Related Wallets"), value: "related" },
-          { name: chalk.green("Related Wallet Funders"), value: "funding" },
-          { name: chalk.green("Interacted Contracts"), value: "contracts" },
-        ],
-      });
+        let address: string;
 
-      const analyzer = new TransactionAnalyzer();
-      let timingAnalysis: TransactionTimingAnalysis;
+        // if the search string is not an ethereum address, fetch the entity from arkham
+        // and suggest related addresses
+        if (!isAddress(search)) {
+          const results = await arkham.searchEntities(search);
 
-      if (answers2.action.includes("timing")) {
-        console.log("\n");
-        const timingSpinner = ora(
-          chalk.green("Analyzing transaction timing...")
-        ).start();
-        timingAnalysis = await analyzer.analyzeTransactionTiming(address);
-        timingSpinner.succeed(chalk.green("Timing analysis complete!"));
+          const addresses = results.arkhamAddresses.map((address) => ({
+            address: address.address,
+            chain: address.chain,
+            entity: address.arkhamEntity?.name,
+            label: address.arkhamLabel?.name,
+          }));
 
-        TerminalFormatter.printTimingAnalysis(timingAnalysis);
-        csvExporter.writeTimingAnalysisSheet(timingAnalysis);
+          const answers = await inquirer.prompt({
+            type: "list",
+            name: "entity",
+            message: chalk.green("Select a wallet"),
+            choices: addresses.map((address) => ({
+              name: `${chalk.green(address.entity)} (${chalk.gray(
+                address.address
+              )})`,
+              value: address.address,
+            })),
+          });
 
-        console.log("\n");
-      }
+          const entity = addresses.find(
+            (address) => address.address === answers.entity
+          );
 
-      if (
-        answers2.action.includes("related") ||
-        answers2.action.includes("contracts")
-      ) {
-        const relatedSpinner = ora(
-          chalk.green("Analyzing related wallets and contracts interactions...")
-        ).start();
-        const { wallets, contracts } = await analyzer.analyzeRelatedWallets(
-          address
-        );
-        relatedSpinner.succeed(
-          chalk.green(
-            "Related wallets and contracts interactions analysis complete!"
-          )
-        );
+          if (!entity) {
+            console.error(chalk.red("Entity not found"));
+            process.exit(1);
+          }
 
-        if (answers2.action.includes("related")) {
-          // Case of related wallets + funding wallets of related wallets
-          if (answers2.action.includes("funding")) {
-            console.log("\n");
-            const fundingWalletsSpinner = ora(
-              chalk.green("Analyzing related wallets funder wallets...")
-            ).start();
-            const walletsWithFunding = await analyzer.getFundingWallets(
-              wallets
-            );
+          address = entity.address.toLowerCase();
+        } else {
+          address = search.toLowerCase();
+        }
 
-            fundingWalletsSpinner.succeed(
-              chalk.green("Related wallets funder wallets analysis complete!")
-            );
+        const answers2 = await inquirer.prompt({
+          type: "checkbox",
+          name: "action",
+          message: chalk.green("What do you want to do"),
+          default: ["timing", "related", "contracts"],
+          choices: [
+            { name: chalk.green("Timing Analysis"), value: "timing" },
+            { name: chalk.green("Related Wallets"), value: "related" },
+            { name: chalk.green("Related Wallet Funders"), value: "funding" },
+            { name: chalk.green("Interacted Contracts"), value: "contracts" },
+            { name: chalk.green("Transfers (only CSV)"), value: "transfers" },
+            {
+              name: chalk.green("Transactions (only CSV)"),
+              value: "transactions",
+            },
+          ],
+        });
 
-            TerminalFormatter.printRelatedWalletsWithFunding(
-              walletsWithFunding
-            );
-            csvExporter.writeRelatedWalletsSheet(wallets);
+        const analyzer = new TransactionAnalyzer();
+        let timingAnalysis: TransactionTimingAnalysis;
 
-            // Case of related wallets only
-          } else {
-            TerminalFormatter.printRelatedWallets(wallets);
-            csvExporter.writeRelatedWalletsSheet(wallets);
+        if (answers2.action.includes("timing")) {
+          console.log("\n");
+          const timingSpinner = ora(
+            chalk.green("Analyzing transaction timing...")
+          ).start();
+          timingAnalysis = await analyzer.analyzeTransactionTiming(address);
+          timingSpinner.succeed(chalk.green("Timing analysis complete!"));
+
+          TerminalFormatter.printTimingAnalysis(timingAnalysis);
+          csvExporter.writeTimingAnalysisSheet(timingAnalysis);
+
+          console.log("\n");
+        }
+
+        if (
+          answers2.action.includes("related") ||
+          answers2.action.includes("contracts")
+        ) {
+          const relatedSpinner = ora(
+            chalk.green(
+              "Analyzing related wallets and contracts interactions..."
+            )
+          ).start();
+          const { wallets, contracts, hyperSyncData } =
+            await analyzer.analyzeRelatedWallets(address);
+
+          relatedSpinner.succeed(
+            chalk.green(
+              "Related wallets and contracts interactions analysis complete!"
+            )
+          );
+
+          if (answers2.action.includes("related")) {
+            // Case of related wallets + funding wallets of related wallets
+            if (answers2.action.includes("funding")) {
+              console.log("\n");
+              const fundingWalletsSpinner = ora(
+                chalk.green("Analyzing related wallets funder wallets...")
+              ).start();
+              const walletsWithFunding = await analyzer.getFundingWallets(
+                wallets
+              );
+
+              fundingWalletsSpinner.succeed(
+                chalk.green("Related wallets funder wallets analysis complete!")
+              );
+
+              TerminalFormatter.printRelatedWalletsWithFunding(
+                walletsWithFunding
+              );
+              csvExporter.writeRelatedWalletsSheet(wallets);
+
+              // Case of related wallets only
+            } else {
+              TerminalFormatter.printRelatedWallets(wallets);
+              csvExporter.writeRelatedWalletsSheet(wallets);
+            }
+          }
+
+          if (answers2.action.includes("contracts")) {
+            TerminalFormatter.printInteractedContracts(contracts);
+            csvExporter.writeContractsSheet(contracts);
           }
         }
 
-        if (answers2.action.includes("contracts")) {
-          TerminalFormatter.printInteractedContracts(contracts);
-          csvExporter.writeContractsSheet(contracts);
-        }
-      }
+        if (
+          answers2.action.includes("transfers") ||
+          answers2.action.includes("transactions")
+        ) {
+          let hyperSync = new HyperSync();
+          let { transactions, logs, blocks, decodedLogs } =
+            await hyperSync.getOutflowsAndWhitelistedInflows([address]);
 
-      csvExporter.exportAnalysisXLSX();
+          const parsedLogs = await hyperSync.parseERC20Logs(
+            logs,
+            decodedLogs,
+            transactions,
+            NETWORKS.MAINNET
+          );
+
+          csvExporter.writeTransfersSheet(parsedLogs);
+        }
+
+        csvExporter.exportAnalysisXLSX();
+      } catch (error) {
+        console.log(error);
+        process.exit(1);
+      }
     }
   );
 

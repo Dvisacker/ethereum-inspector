@@ -3,6 +3,8 @@ import { RelatedWalletInfo } from "../analysis";
 import * as fs from "fs";
 import * as path from "path";
 import * as XLSX from "xlsx-js-style";
+import { getTokenDecimalsByAddress, NetworkId } from "../constants";
+import { Transfer } from "../types";
 
 // Define a type for contract info based on analyzeRelatedWallets output
 export interface ContractInfo {
@@ -19,6 +21,7 @@ export interface ContractInfo {
 const TIMING_ANALYSIS_COL_WIDTHS = [30, 20, 20];
 const RELATED_WALLETS_COL_WIDTHS = [44, 18, 22, 32];
 const CONTRACTS_COL_WIDTHS = [44, 18, 22, 32, 32, 12, 18, 32];
+const TRANSFERS_COL_WIDTHS = [44, 44, 44, 14, 24, 66, 14];
 
 // Helper styles
 const headerStyle = {
@@ -38,6 +41,16 @@ const cellBorder = {
     right: { style: "thin", color: { rgb: "000000" } },
   },
 };
+
+// Helper to shorten addresses and hashes
+function shortAddr(addr: string) {
+  if (!addr) return "";
+  return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
+}
+function shortHash(hash: string) {
+  if (!hash) return "";
+  return hash.length > 14 ? `${hash.slice(0, 10)}...${hash.slice(-4)}` : hash;
+}
 
 export class XLSXExporter {
   private workbook: XLSX.WorkBook;
@@ -147,9 +160,22 @@ export class XLSXExporter {
 
   formatRelatedWallets(wallets: RelatedWalletInfo[]) {
     const rows: any[][] = [];
-    rows.push(["Address", "Transaction Count", "Entity", "Label"]);
+    rows.push([
+      { v: "Address", s: headerStyle },
+      { v: "Transaction Count", s: headerStyle },
+      { v: "Entity", s: headerStyle },
+      { v: "Label", s: headerStyle },
+    ]);
     wallets.forEach((wallet) => {
-      rows.push([wallet.address, wallet.txCount, wallet.entity, wallet.label]);
+      rows.push([
+        {
+          v: shortAddr(wallet.address),
+          l: { Target: `https://etherscan.io/address/${wallet.address}` },
+        },
+        wallet.txCount,
+        wallet.entity,
+        wallet.label,
+      ]);
     });
     return rows;
   }
@@ -157,18 +183,21 @@ export class XLSXExporter {
   formatContracts(contracts: ContractInfo[]) {
     const rows: any[][] = [];
     rows.push([
-      "Address",
-      "Transaction Count",
-      "Entity",
-      "Label",
-      "Contract Name",
-      "Is Proxy",
-      "Proxy Type",
-      "Implementation Name",
+      { v: "Address", s: headerStyle },
+      { v: "Transaction Count", s: headerStyle },
+      { v: "Entity", s: headerStyle },
+      { v: "Label", s: headerStyle },
+      { v: "Contract Name", s: headerStyle },
+      { v: "Is Proxy", s: headerStyle },
+      { v: "Proxy Type", s: headerStyle },
+      { v: "Implementation Name", s: headerStyle },
     ]);
     contracts.forEach((contract) => {
       rows.push([
-        contract.address,
+        {
+          v: shortAddr(contract.address),
+          l: { Target: `https://etherscan.io/address/${contract.address}` },
+        },
         contract.txCount,
         contract.entity,
         contract.label,
@@ -200,6 +229,55 @@ export class XLSXExporter {
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = CONTRACTS_COL_WIDTHS.map((wch) => ({ wch }));
     XLSX.utils.book_append_sheet(this.workbook, ws, "Interacted Contracts");
+  }
+
+  writeTransfersSheet(transfers: Transfer[]) {
+    const rows: any[][] = [];
+    // Header row with style
+    rows.push([
+      { v: "From", s: headerStyle },
+      { v: "To", s: headerStyle },
+      { v: "Token Address", s: headerStyle },
+      { v: "Symbol", s: headerStyle },
+      { v: "Amount (wei)", s: headerStyle },
+      { v: "Amount (formatted)", s: headerStyle },
+      { v: "Tx Hash", s: headerStyle },
+      { v: "Block #", s: headerStyle },
+    ]);
+
+    for (const t of transfers) {
+      const decimals = getTokenDecimalsByAddress(t.tokenAddress, t.networkId);
+      const amount =
+        decimals && decimals > 0
+          ? (BigInt(t.amount) / BigInt(10 ** decimals)).toString()
+          : "";
+
+      rows.push([
+        {
+          v: shortAddr(t.from),
+          l: { Target: `https://etherscan.io/address/${t.from}` },
+        },
+        {
+          v: shortAddr(t.to),
+          l: { Target: `https://etherscan.io/address/${t.to}` },
+        },
+        {
+          v: shortAddr(t.tokenAddress),
+          l: { Target: `https://etherscan.io/address/${t.tokenAddress}` },
+        },
+        t.symbol,
+        t.amount,
+        amount.toString(),
+        {
+          v: shortHash(t.txHash),
+          l: { Target: `https://etherscan.io/tx/${t.txHash}` },
+        },
+        t.blockNumber,
+      ]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = TRANSFERS_COL_WIDTHS.map((wch) => ({ wch }));
+    XLSX.utils.book_append_sheet(this.workbook, ws, "Transfers");
   }
 
   exportAnalysisXLSX(outputPath?: string) {

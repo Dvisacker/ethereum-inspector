@@ -1,5 +1,4 @@
-import { DecodedEvent } from "@envio-dev/hypersync-client";
-import { addressToSymbol, HyperSync, WHITELISTED_TOKENS } from "./hypersync";
+import { HyperSync } from "./hypersync";
 
 describe("HyperSync", () => {
   let hyperSync: HyperSync;
