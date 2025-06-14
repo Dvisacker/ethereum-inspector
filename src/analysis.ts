@@ -8,7 +8,7 @@ import { EtherscanClient, ProxyType } from "./etherscan";
 import { safePromise } from "./helpers";
 import { config } from "./config";
 import { ethers } from "ethers";
-import { ContractInfo } from "./formatters/csv";
+import { ContractInfo } from "./formatters/sheet";
 import { HyperSyncData } from "./types";
 import { ETHER } from "./constants";
 

@@ -8,7 +8,7 @@ import ora from "ora";
 import chalk from "chalk";
 import { config } from "./config";
 import { TerminalFormatter } from "./formatters/terminal";
-import { XLSXExporter } from "./formatters/csv";
+import { XLSXExporter } from "./formatters/sheet";
 import { HyperSync, parseTransactions } from "./hypersync";
 import { NETWORKS } from "./constants";
 
@@ -33,8 +33,6 @@ program
             +options.relatedWalletsThreshold
           );
         }
-
-        const csvExporter = new XLSXExporter();
 
         let address: string;
 
@@ -75,6 +73,8 @@ program
         } else {
           address = search.toLowerCase();
         }
+
+        const csvExporter = new XLSXExporter(address);
 
         const answers2 = await inquirer.prompt({
           type: "checkbox",
