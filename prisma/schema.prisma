@@ -1,0 +1,36 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator kysely {
+  provider = "prisma-kysely"
+  output   = "../src/database"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Contract {
+  id                    Int     @id @default(autoincrement())
+  address               String
+  networkId             Int
+  name                  String?
+  /// @kyselyType(boolean)
+  isProxy               Boolean @default(false)
+  proxyType             String?
+  implementationAddress String?
+  entity                String?
+  bytecode              String?
+  deployedBytecode      String?
+  abi                   String? // Store ABI as JSON string
+
+  @@unique([address, networkId])
+  @@index([networkId])
+  @@index([entity])
+  @@map("contracts")
+}
