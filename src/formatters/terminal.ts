@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import Table from "cli-table3";
 import { TransactionTimingAnalysis, RelatedWalletInfo } from "../analysis";
-import { ContractInfo } from "./csv";
+import { ContractInfo } from "./sheet";
 
 export class TerminalFormatter {
   static printTimingAnalysis(timingAnalysis: TransactionTimingAnalysis) {

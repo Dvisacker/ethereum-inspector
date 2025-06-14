@@ -44,9 +44,11 @@ const cellBorder = {
 
 export class XLSXExporter {
   private workbook: XLSX.WorkBook;
+  private address: string;
 
-  constructor() {
+  constructor(address: string) {
     this.workbook = XLSX.utils.book_new();
+    this.address = address;
   }
 
   formatTimingAnalysis(analysis: TransactionTimingAnalysis) {
@@ -354,7 +356,12 @@ export class XLSXExporter {
 
   exportAnalysisXLSX(outputPath?: string) {
     if (!outputPath) {
-      outputPath = path.join(process.cwd(), "output", "analysis.xlsx");
+      const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      outputPath = path.join(
+        process.cwd(),
+        "output",
+        `${this.address}-${date}.xlsx`
+      );
     }
     const outputDir = path.dirname(outputPath);
     console.log("Exporting analysis to", outputPath);

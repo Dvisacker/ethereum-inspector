@@ -81,23 +81,19 @@ The arkham cookie can be found opening the developer tools in the "Network" tab 
   - Treat related wallets with high tx counts differently (skip costly analyses)
   - Caching layer for etherscan/arkham
 - Improved heuristic for related wallets. 
-- Check if there is way to use Nansen/Etherscan free
 - Cache last analysis selected options 
 
 ### Additional features
 - Wallet similarity analysis between 2 wallets and calculate 1) tx timing similarity score 2) interacted contracts similarity score
 - Column with total net inflow/outflow to related wallets. Only considering major tokens like USDC, USDT, ETH, WETH, WBTC, etc. to simplify. Maybe a good feature to distinguish which wallets are really related.
 - Embedded DB (sqlite?) with labels from github. Also ofac lists/apis.
-- Related wallets first tx date
 - Export report to PDF
-- Export transactions/inflow/outflows to CSV
 - More data on interacted contracts (most called functions?)
 - Contract analysis command - instead of analyzing an EOA, another command to analyze a contract. Not sure if useful.
-- Bridging tracking ? Seems hard.
-- ?
+- Bridging tracking
 
 ### Issues
- - Would like to have etherscan/arkham/dbank/twitter address links in table outputs but this seems hard to do.
+ - Would be nice to have etherscan/arkham/dbank/twitter address links in table outputs but this seems hard to do.
  - Some arkham MEV bot labels seem to be wrong (ex 0x0f4a1d7fdf4890be35e71f3e0bbc4a0ec377eca3)
  - Some contracts (Gnosis Safe, Rabby Fee Wallet? and other smart wallets) should probably be included in the "EOA category" and not in the contract interaction category.
  - Middle-east (Dubai) time maybe too close to both Asia/Europe to be distinguishable in timing analysis.

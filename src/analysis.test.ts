@@ -26,8 +26,6 @@ describe("TransactionAnalyzer", () => {
 
       const result = await analyzer.getFundingWallets(wallets);
 
-      console.log(result);
-
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
 
