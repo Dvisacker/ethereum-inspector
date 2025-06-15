@@ -35,10 +35,7 @@ export class ContractRepository {
   constructor() {
     this.prisma = new PrismaClient();
 
-    // Use the same database path as Prisma
     const dbPath = join(__dirname, "../../prisma/dev.db");
-
-    console.log("dbPath 1", dbPath);
 
     this.kysely = new Kysely<DB>({
       dialect: new SqliteDialect({

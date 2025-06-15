@@ -5,7 +5,6 @@ describe("ContractRepository", () => {
 
   beforeEach(async () => {
     repo = new ContractRepository();
-    // Clean up database before each test
     await cleanupDatabase();
   });
 
