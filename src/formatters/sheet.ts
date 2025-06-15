@@ -169,32 +169,106 @@ export class XLSXExporter {
     rows.push([{ v: "Summary", s: headerStyle }]);
     rows.push([
       { v: "Total Transactions", s: headerStyle },
-      analysis.totalTransactions,
+      {
+        v: analysis.totalTransactions,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Average Transactions per Day", s: headerStyle },
-      analysis.averageTransactionsPerDay.toFixed(2),
+      {
+        v: analysis.averageTransactionsPerDay.toFixed(2),
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Busiest Hour", s: headerStyle },
-      `${analysis.busiestHour.hour}:00 UTC`,
-      analysis.busiestHour.count,
+      {
+        v: `${analysis.busiestHour.hour}:00 UTC`,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiestHour.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Busiest Day", s: headerStyle },
-      analysis.busiestDay.day,
-      analysis.busiestDay.count,
+      {
+        v: analysis.busiestDay.day,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiestDay.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Busiest Month", s: headerStyle },
-      analysis.busiestMonth.month,
-      analysis.busiestMonth.count,
+      {
+        v: analysis.busiestMonth.month,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiestMonth.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Busiest Year", s: headerStyle },
-      analysis.busiestYear.year,
-      analysis.busiestYear.count,
+      {
+        v: analysis.busiestYear.year,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiestYear.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
+
+    // Add work window (most active 6 hour period)
+    rows.push([
+      { v: "Work Window", s: headerStyle },
+      {
+        v: `${analysis.busiest6Hour.startHour}:00 - ${
+          (analysis.busiest6Hour.startHour + 6) % 24
+        }:00 UTC`,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiest6Hour.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+    ]);
+
+    // Add sleep window (least active 6 hour period)
+    rows.push([
+      { v: "Sleep Window", s: headerStyle },
+      {
+        v: `${analysis.leastBusy6Hour.startHour}:00 - ${
+          (analysis.leastBusy6Hour.startHour + 6) % 24
+        }:00 UTC`,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.leastBusy6Hour.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+    ]);
+
+    // Add inferred region based on work window
+    if (analysis.inferredTimezone) {
+      rows.push([
+        { v: "Inferred Region", s: headerStyle },
+        {
+          v: `${analysis.inferredTimezone.region} (${(
+            analysis.inferredTimezone.confidence * 100
+          ).toFixed(1)}% confidence)`,
+          s: { ...cellBorder, alignment: { horizontal: "right" } },
+        },
+      ]);
+    }
+
     rows.push([]);
 
     rows.push([{ v: "Hourly Distribution", s: headerStyle }]);
