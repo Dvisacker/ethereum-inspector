@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { TransactionAnalyzer, TransactionTimingAnalysis } from "./analysis";
+import {
+  RelatedWalletInfo,
+  TransactionAnalyzer,
+  TransactionTimingAnalysis,
+} from "./analysis";
 import { ArkhamClient } from "./arkham";
 import inquirer from "inquirer";
 import { isAddress } from "ethers";
@@ -8,9 +12,14 @@ import ora from "ora";
 import chalk from "chalk";
 import { config } from "./config";
 import { TerminalFormatter } from "./formatters/terminal";
-import { XLSXExporter } from "./formatters/sheet";
-import { HyperSync, parseTransactions } from "./hypersync";
+import { ContractInfo, XLSXExporter } from "./formatters/sheet";
+import {
+  HyperSync,
+  parseTransactions,
+  TransactionWithTimestamp,
+} from "./hypersync";
 import { NETWORKS } from "./constants";
+import { Transfer } from "./types";
 
 const program = new Command();
 
@@ -27,6 +36,12 @@ program
     async (search: string, options: { relatedWalletsThreshold: string }) => {
       try {
         const arkham = new ArkhamClient(config.get("arkhamCookie"));
+        let wallets: RelatedWalletInfo[] = [];
+        let contracts: ContractInfo[] = [];
+        let transfers: Transfer[] = [];
+        let parsedTransactions: TransactionWithTimestamp[] = [];
+        let timingAnalysis: TransactionTimingAnalysis;
+
         if (options.relatedWalletsThreshold) {
           config.set(
             "relatedWalletsThreshold",
@@ -95,7 +110,6 @@ program
         });
 
         const analyzer = new TransactionAnalyzer();
-        let timingAnalysis: TransactionTimingAnalysis;
 
         if (answers2.action.includes("timing")) {
           console.log("\n");
@@ -104,10 +118,8 @@ program
           ).start();
           timingAnalysis = await analyzer.analyzeTransactionTiming(address);
           timingSpinner.succeed(chalk.green("Timing analysis complete!"));
-
           TerminalFormatter.printTimingAnalysis(timingAnalysis);
           csvExporter.writeTimingAnalysisSheet(timingAnalysis);
-
           console.log("\n");
         }
 
@@ -120,8 +132,11 @@ program
               "Analyzing related wallets and contracts interactions..."
             )
           ).start();
-          const { wallets, contracts, hyperSyncData } =
-            await analyzer.analyzeRelatedWallets(address);
+          const relatedWalletsData = await analyzer.analyzeRelatedWallets(
+            address
+          );
+          wallets = relatedWalletsData.wallets;
+          contracts = relatedWalletsData.contracts;
 
           relatedSpinner.succeed(
             chalk.green(
@@ -147,18 +162,15 @@ program
               TerminalFormatter.printRelatedWalletsWithFunding(
                 walletsWithFunding
               );
-              csvExporter.writeRelatedWalletsSheet(wallets);
 
               // Case of related wallets only
             } else {
               TerminalFormatter.printRelatedWallets(wallets);
-              csvExporter.writeRelatedWalletsSheet(wallets);
             }
           }
 
           if (answers2.action.includes("contracts")) {
             TerminalFormatter.printInteractedContracts(contracts);
-            csvExporter.writeContractsSheet(contracts);
           }
         }
 
@@ -171,23 +183,41 @@ program
             await hyperSync.getOutflowsAndWhitelistedInflows([address]);
 
           if (answers2.action.includes("transfers")) {
-            let transfers = await hyperSync.parseTransfers(
+            transfers = await hyperSync.parseTransfers(
               logs,
               decodedLogs,
               transactions,
               blocks,
               NETWORKS.MAINNET
             );
-            csvExporter.writeTransfersSheet(transfers);
           }
 
           if (answers2.action.includes("transactions")) {
-            let parsedTransactions = await parseTransactions(
-              transactions,
-              blocks
-            );
-            csvExporter.writeTransactionsSheet(parsedTransactions);
+            parsedTransactions = await parseTransactions(transactions, blocks);
           }
+        }
+
+        csvExporter.setupAddressColorMapping(
+          wallets,
+          contracts,
+          transfers,
+          parsedTransactions
+        );
+
+        if (answers2.action.includes("related")) {
+          csvExporter.writeRelatedWalletsSheet(wallets);
+        }
+
+        if (answers2.action.includes("transfers")) {
+          csvExporter.writeTransfersSheet(transfers);
+        }
+
+        if (answers2.action.includes("transactions")) {
+          csvExporter.writeTransactionsSheet(parsedTransactions);
+        }
+
+        if (answers2.action.includes("contracts")) {
+          csvExporter.writeContractsSheet(contracts);
         }
 
         csvExporter.exportAnalysisXLSX();
