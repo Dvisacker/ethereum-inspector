@@ -23,6 +23,30 @@ const RELATED_WALLETS_COL_WIDTHS = [44, 18, 22, 32, 12, 12];
 const CONTRACTS_COL_WIDTHS = [44, 18, 22, 32, 32, 12, 18, 32];
 const TRANSFERS_COL_WIDTHS = [44, 44, 44, 14, 24, 66, 14];
 
+// Address color constants for the 20 most frequent addresses
+const ADDRESS_COLORS = [
+  { rgb: "E3F2FD" }, // Light Blue
+  { rgb: "E8F5E8" }, // Light Green
+  { rgb: "FFF3E0" }, // Light Orange
+  { rgb: "F3E5F5" }, // Light Purple
+  { rgb: "FCE4EC" }, // Light Pink
+  { rgb: "E0F2F1" }, // Light Teal
+  { rgb: "FFF8E1" }, // Light Yellow
+  { rgb: "EFEBE9" }, // Light Brown
+  { rgb: "FAFAFA" }, // Light Gray
+  { rgb: "E1F5FE" }, // Light Cyan
+  { rgb: "F1F8E9" }, // Light Lime
+  { rgb: "FFF2CC" }, // Light Amber
+  { rgb: "EDE7F6" }, // Light Deep Purple
+  { rgb: "E8EAF6" }, // Light Indigo
+  { rgb: "E0F7FA" }, // Light Cyan
+  { rgb: "F3E5F5" }, // Light Pink
+  { rgb: "FFF8E1" }, // Light Yellow Green
+  { rgb: "FCE4EC" }, // Light Rose
+  { rgb: "E1F5FE" }, // Light Sky Blue
+  { rgb: "F9FBE7" }, // Light Lime Green
+];
+
 // Helper styles
 const headerStyle = {
   font: { bold: true },
@@ -45,10 +69,99 @@ const cellBorder = {
 export class XLSXExporter {
   private workbook: XLSX.WorkBook;
   private address: string;
+  private addressColorMap: Map<string, string> = new Map();
 
   constructor(address: string) {
     this.workbook = XLSX.utils.book_new();
     this.address = address;
+  }
+
+  // Analyze address frequency across all data sources and create color mapping
+  private analyzeAddressFrequency(
+    wallets: RelatedWalletInfo[],
+    contracts: ContractInfo[],
+    transfers: Transfer[],
+    transactions: any[]
+  ) {
+    const addressCounts = new Map<string, number>();
+
+    // Count wallet addresses
+    wallets.forEach((wallet) => {
+      const count = addressCounts.get(wallet.address) || 0;
+      addressCounts.set(wallet.address, count + wallet.txCount);
+    });
+
+    // Count contract addresses
+    contracts.forEach((contract) => {
+      const count = addressCounts.get(contract.address) || 0;
+      addressCounts.set(contract.address, count + contract.txCount);
+    });
+
+    // Count addresses in transfers
+    transfers.forEach((transfer) => {
+      // Count 'from' addresses
+      const fromCount = addressCounts.get(transfer.from) || 0;
+      addressCounts.set(transfer.from, fromCount + 1);
+
+      // Count 'to' addresses
+      const toCount = addressCounts.get(transfer.to) || 0;
+      addressCounts.set(transfer.to, toCount + 1);
+
+      // Count token addresses
+      const tokenCount = addressCounts.get(transfer.tokenAddress) || 0;
+      addressCounts.set(transfer.tokenAddress, tokenCount + 1);
+    });
+
+    // Count addresses in transactions
+    transactions.forEach((tx) => {
+      if (tx.from) {
+        const fromCount = addressCounts.get(tx.from) || 0;
+        addressCounts.set(tx.from, fromCount + 1);
+      }
+      if (tx.to) {
+        const toCount = addressCounts.get(tx.to) || 0;
+        addressCounts.set(tx.to, toCount + 1);
+      }
+    });
+
+    // Get top 20 most frequent addresses
+    const sortedAddresses = Array.from(addressCounts.entries())
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 20);
+
+    // Create color mapping
+    this.addressColorMap.clear();
+    sortedAddresses.forEach(([address], index) => {
+      if (index < ADDRESS_COLORS.length) {
+        this.addressColorMap.set(address, ADDRESS_COLORS[index].rgb);
+      }
+    });
+
+    console.log("Top 20 most frequent addresses:");
+    sortedAddresses.forEach(([address, count], index) => {
+      const color = ADDRESS_COLORS[index]?.rgb || "default";
+      console.log(
+        `${index + 1}. ${shortAddr(
+          address
+        )}: ${count} occurrences (color: #${color})`
+      );
+    });
+  }
+
+  // Helper method to get address color
+  private getAddressColor(address: string): any {
+    const colorRgb = this.addressColorMap.get(address);
+    return colorRgb ? { fgColor: { rgb: colorRgb } } : undefined;
+  }
+
+  // Set up address color mapping - call this before writing sheets
+  setupAddressColorMapping(
+    wallets: RelatedWalletInfo[] = [],
+    contracts: ContractInfo[] = [],
+    transfers: Transfer[] = [],
+    transactions: any[] = []
+  ) {
+    this.analyzeAddressFrequency(wallets, contracts, transfers, transactions);
   }
 
   formatTimingAnalysis(analysis: TransactionTimingAnalysis) {
@@ -56,32 +169,106 @@ export class XLSXExporter {
     rows.push([{ v: "Summary", s: headerStyle }]);
     rows.push([
       { v: "Total Transactions", s: headerStyle },
-      analysis.totalTransactions,
+      {
+        v: analysis.totalTransactions,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Average Transactions per Day", s: headerStyle },
-      analysis.averageTransactionsPerDay.toFixed(2),
+      {
+        v: analysis.averageTransactionsPerDay.toFixed(2),
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Busiest Hour", s: headerStyle },
-      `${analysis.busiestHour.hour}:00 UTC`,
-      analysis.busiestHour.count,
+      {
+        v: `${analysis.busiestHour.hour}:00 UTC`,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiestHour.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Busiest Day", s: headerStyle },
-      analysis.busiestDay.day,
-      analysis.busiestDay.count,
+      {
+        v: analysis.busiestDay.day,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiestDay.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Busiest Month", s: headerStyle },
-      analysis.busiestMonth.month,
-      analysis.busiestMonth.count,
+      {
+        v: analysis.busiestMonth.month,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiestMonth.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
     rows.push([
       { v: "Busiest Year", s: headerStyle },
-      analysis.busiestYear.year,
-      analysis.busiestYear.count,
+      {
+        v: analysis.busiestYear.year,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiestYear.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
     ]);
+
+    // Add work window (most active 6 hour period)
+    rows.push([
+      { v: "Work Window", s: headerStyle },
+      {
+        v: `${analysis.busiest6Hour.startHour}:00 - ${
+          (analysis.busiest6Hour.startHour + 6) % 24
+        }:00 UTC`,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.busiest6Hour.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+    ]);
+
+    // Add sleep window (least active 6 hour period)
+    rows.push([
+      { v: "Sleep Window", s: headerStyle },
+      {
+        v: `${analysis.leastBusy6Hour.startHour}:00 - ${
+          (analysis.leastBusy6Hour.startHour + 6) % 24
+        }:00 UTC`,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+      {
+        v: analysis.leastBusy6Hour.count,
+        s: { ...cellBorder, alignment: { horizontal: "right" } },
+      },
+    ]);
+
+    // Add inferred region based on work window
+    if (analysis.inferredTimezone) {
+      rows.push([
+        { v: "Inferred Region", s: headerStyle },
+        {
+          v: `${analysis.inferredTimezone.region} (${(
+            analysis.inferredTimezone.confidence * 100
+          ).toFixed(1)}% confidence)`,
+          s: { ...cellBorder, alignment: { horizontal: "right" } },
+        },
+      ]);
+    }
+
     rows.push([]);
 
     rows.push([{ v: "Hourly Distribution", s: headerStyle }]);
@@ -172,17 +359,33 @@ export class XLSXExporter {
       { v: "Arkham", s: headerStyle },
     ]);
     wallets.forEach((wallet) => {
+      const addressFill = this.getAddressColor(wallet.address);
+      const addressStyle = addressFill
+        ? { ...cellBorder, fill: addressFill }
+        : cellBorder;
+
       rows.push([
         {
           v: shortAddr(wallet.address),
           l: { Target: `https://etherscan.io/address/${wallet.address}` },
+          s: addressStyle,
         },
-        wallet.txCount,
-        wallet.entity,
-        wallet.label,
+        {
+          v: wallet.txCount,
+          s: cellBorder,
+        },
+        {
+          v: wallet.entity,
+          s: cellBorder,
+        },
+        {
+          v: wallet.label,
+          s: cellBorder,
+        },
         {
           v: "DEB",
           l: { Target: `https://debank.com/profile/${wallet.address}` },
+          s: cellBorder,
         },
         {
           v: "ARK",
@@ -208,18 +411,45 @@ export class XLSXExporter {
       { v: "Implementation Name", s: headerStyle },
     ]);
     contracts.forEach((contract) => {
+      const addressFill = this.getAddressColor(contract.address);
+      const addressStyle = addressFill
+        ? { ...cellBorder, fill: addressFill }
+        : cellBorder;
+
       rows.push([
         {
           v: shortAddr(contract.address),
           l: { Target: `https://etherscan.io/address/${contract.address}` },
+          s: addressStyle,
         },
-        contract.txCount,
-        contract.entity,
-        contract.label,
-        contract.name,
-        contract.isProxy ? "Yes" : "No",
-        contract.proxyType || "",
-        contract.implementationName || "",
+        {
+          v: contract.txCount,
+          s: cellBorder,
+        },
+        {
+          v: contract.entity,
+          s: cellBorder,
+        },
+        {
+          v: contract.label,
+          s: cellBorder,
+        },
+        {
+          v: contract.name,
+          s: cellBorder,
+        },
+        {
+          v: contract.isProxy ? "Yes" : "No",
+          s: cellBorder,
+        },
+        {
+          v: contract.proxyType,
+          s: cellBorder,
+        },
+        {
+          v: contract.implementationName,
+          s: cellBorder,
+        },
       ]);
     });
     return rows;
@@ -268,18 +498,25 @@ export class XLSXExporter {
           ? (BigInt(t.amount) / BigInt(10 ** decimals)).toString()
           : "";
 
+      const fromFill = this.getAddressColor(t.from);
+      const toFill = this.getAddressColor(t.to);
+      const tokenFill = this.getAddressColor(t.tokenAddress);
+
       rows.push([
         {
           v: shortAddr(t.from),
           l: { Target: `https://etherscan.io/address/${t.from}` },
+          s: fromFill ? { fill: fromFill } : undefined,
         },
         {
           v: shortAddr(t.to),
           l: { Target: `https://etherscan.io/address/${t.to}` },
+          s: toFill ? { fill: toFill } : undefined,
         },
         {
           v: shortAddr(t.tokenAddress),
           l: { Target: `https://etherscan.io/address/${t.tokenAddress}` },
+          s: tokenFill ? { fill: tokenFill } : undefined,
         },
         t.symbol,
         t.amount,
@@ -302,7 +539,6 @@ export class XLSXExporter {
   }
 
   writeTransactionsSheet(transactions: any[]) {
-    // Sort by timestamp descending
     transactions = transactions.sort((a, b) => b.timestamp - a.timestamp);
     const rows: any[][] = [];
     rows.push([
@@ -314,32 +550,31 @@ export class XLSXExporter {
       { v: "Timestamp", s: headerStyle },
     ]);
     for (const tx of transactions) {
+      const fromFill = this.getAddressColor(tx.from);
+      const toFill = this.getAddressColor(tx.to);
+
       rows.push([
         {
-          v: tx.hash,
+          v: shortHash(tx.hash),
           l: { Target: `https://etherscan.io/tx/${tx.hash}` },
-          s: cellBorder,
         },
         {
-          v: tx.from,
+          v: shortAddr(tx.from),
           l: { Target: `https://etherscan.io/address/${tx.from}` },
-          s: cellBorder,
+          s: fromFill ? { fill: fromFill } : undefined,
         },
         {
-          v: tx.to,
+          v: shortAddr(tx.to),
           l: { Target: `https://etherscan.io/address/${tx.to}` },
-          s: cellBorder,
+          s: toFill ? { fill: toFill } : undefined,
         },
-        { v: tx.value, s: cellBorder },
-        { v: tx.blockNumber, s: cellBorder },
-        {
-          v: new Date(tx.timestamp * 1000).toLocaleString("en-US", {
-            timeZone: "UTC",
-            dateStyle: "short",
-            timeStyle: "medium",
-          }),
-          s: cellBorder,
-        },
+        tx.value,
+        tx.blockNumber,
+        new Date(tx.timestamp * 1000).toLocaleString("en-US", {
+          timeZone: "UTC",
+          dateStyle: "short",
+          timeStyle: "medium",
+        }),
       ]);
     }
     const ws = XLSX.utils.aoa_to_sheet(rows);
