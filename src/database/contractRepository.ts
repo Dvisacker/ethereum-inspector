@@ -2,7 +2,8 @@ import { PrismaClient, Contract } from "@prisma/client";
 import { Kysely, SqliteDialect } from "kysely";
 import { DB } from "./types";
 import BetterSqlite3 from "better-sqlite3";
-import path, { join } from "path";
+import { join } from "path";
+import { transformContracts, SqliteBooleanPlugin } from "./patch";
 
 export interface CreateContractInput {
   address: string;
@@ -41,6 +42,7 @@ export class ContractRepository {
       dialect: new SqliteDialect({
         database: new BetterSqlite3(dbPath),
       }),
+      plugins: [new SqliteBooleanPlugin()],
     });
   }
 
@@ -104,29 +106,34 @@ export class ContractRepository {
     });
   }
 
-  // Complex queries using Kysely
   async getContractsByEntity(entity: string): Promise<Contract[]> {
-    return this.kysely
+    const result = await this.kysely
       .selectFrom("contracts")
       .selectAll()
       .where("entity", "=", entity)
       .execute();
+
+    return transformContracts(result);
   }
 
   async getProxyContracts(): Promise<Contract[]> {
-    return this.kysely
+    const result = await this.kysely
       .selectFrom("contracts")
       .selectAll()
       .where("isProxy", "=", true)
       .execute();
+
+    return transformContracts(result);
   }
 
   async getContractsByNetwork(networkId: number): Promise<Contract[]> {
-    return this.kysely
+    const result = await this.kysely
       .selectFrom("contracts")
       .selectAll()
       .where("networkId", "=", networkId)
       .execute();
+
+    return transformContracts(result);
   }
 
   async getContractsWithImplementation(): Promise<
@@ -157,7 +164,7 @@ export class ContractRepository {
   }
 
   async searchContracts(query: string): Promise<Contract[]> {
-    return this.kysely
+    const result = await this.kysely
       .selectFrom("contracts")
       .selectAll()
       .where((eb) =>
@@ -168,6 +175,8 @@ export class ContractRepository {
         ])
       )
       .execute();
+
+    return transformContracts(result);
   }
 
   async getContractStats(): Promise<{
@@ -212,7 +221,6 @@ export class ContractRepository {
     };
   }
 
-  // Cleanup method
   async disconnect(): Promise<void> {
     await this.prisma.$disconnect();
     await this.kysely.destroy();

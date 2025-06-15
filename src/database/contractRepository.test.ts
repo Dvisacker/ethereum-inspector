@@ -135,6 +135,7 @@ describe("ContractRepository", () => {
 
     it("should get proxy contracts", async () => {
       const proxyContracts = await repo.getProxyContracts();
+      console.log("proxyContracts", proxyContracts);
       expect(proxyContracts.length).toBeGreaterThan(0);
       expect(proxyContracts.every((c) => c.isProxy === true)).toBe(true);
     });
@@ -168,6 +169,8 @@ describe("ContractRepository", () => {
 
     it("should get contract statistics", async () => {
       const stats = await repo.getContractStats();
+
+      console.log("stats", stats);
 
       expect(stats.total).toBeGreaterThan(0);
       expect(stats.proxies).toBeGreaterThan(0);

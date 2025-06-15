@@ -5,6 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator zod {
+  provider = "zod-prisma-types"
+  output   = "../src/schemas"
+}
+
 generator kysely {
   provider = "prisma-kysely"
   output   = "../src/database"
