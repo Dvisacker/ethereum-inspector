@@ -1,13 +1,22 @@
-# Wallet tracker CLI
+# Wallet inspector
+
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/david/wallet-inspector)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/david/wallet-inspector/blob/main/LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org)
 
 A command-line interface for analyzing ethereum addresses.
 
-Here are some examples of results for Abraxas (an italian crypto fund)
 
-![Abraxas](./assets/abraxas1.png)
+## Example results
 
-![Abraxas](./assets/abraxas2.png)
+Here is an [example](https://docs.google.com/spreadsheets/d/1vczcM9H1sLU1i7BBWB1b4XgvYOX_xD56e3DJa4yNrhE/edit?gid=167015203#gid=167015203) of generated spreadsheet with results for Abraxas (an italian crypto fund)
 
+The spreadsheet contains:
+
+- Transaction timing analysis
+- Related wallets analysis
+- Interacted contracts analysis
+- Transfers analysis
 
 
 ## Installation (didn't test, only use dev mode for now)
@@ -32,8 +41,6 @@ npm install
 npm run dev <address>
 ```
 
-![Main screen](./assets/command.png)
-
 ## Current features
 
 For old addresses or addresses with a lot of activity, the analysis might take a while (several minutes).
@@ -53,12 +60,6 @@ For old addresses or addresses with a lot of activity, the analysis might take a
 ### Interacted contracts analysis
 
 * Get most interacted contracts
-
-![Related wallets](./assets/related-wallets.png)
-
-### Related wallets funder wallet analysis
-
-* For each related wallet, get the funder wallet
 
 
 ## Configuration
