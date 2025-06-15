@@ -1,8 +1,12 @@
-# 🔍 Ethereum Inspector
+# <div align="center">🔍 Ethereum Inspector</div>
+
+<div align="center">
 
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/david/wallet-inspector)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/david/wallet-inspector/blob/main/LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org)
+
+</div>
 
 A command-line tool for deep analysis of Ethereum addresses. Uncover transaction patterns, identify related wallets and download a spreadsheet with the results. Work in progress.
 
@@ -18,21 +22,18 @@ View an [example analysis](https://docs.google.com/spreadsheets/d/1vczcM9H1sLU1i
   - Timezone inference
   - Transaction distribution patterns
 - **Related Wallets**
-  - Smart detection of connected addresses
+  - Detection of connected addresses
   - Arkham entity/label integration
-  - Scam transaction filtering
+  - Scam transaction filtering (WIP)
 - **Contract Interactions**
   - Most frequently interacted contracts
   - Contract metadata and proxy information
 - **Transfer Analysis**
   - ETH and token transfers
   - Transfer patterns and volumes
-
-### Export Capabilities
 - **Excel Export**
-  - Color-coded distribution tables
-  - Rich text formatting for addresses
-  - Multiple sheet exports
+  - XLSX export
+  - Color-coded tables 
 - **Data Integration**
   - Etherscan for contract verification
   - Arkham for entity data
