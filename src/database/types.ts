@@ -16,10 +16,19 @@ export type Contract = {
     proxyType: string | null;
     implementationAddress: string | null;
     entity: string | null;
+    label: string | null;
     bytecode: string | null;
     deployedBytecode: string | null;
     abi: string | null;
 };
+export type Wallet = {
+    id: Generated<number>;
+    address: string;
+    networkId: number;
+    entity: string | null;
+    label: string | null;
+};
 export type DB = {
     contracts: Contract;
+    wallets: Wallet;
 };

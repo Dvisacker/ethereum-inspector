@@ -5,6 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator zod {
+  provider = "zod-prisma-types"
+  output   = "../src/schemas"
+}
+
 generator kysely {
   provider = "prisma-kysely"
   output   = "../src/database"
@@ -12,7 +17,7 @@ generator kysely {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 model Contract {
@@ -25,6 +30,7 @@ model Contract {
   proxyType             String?
   implementationAddress String?
   entity                String?
+  label                 String?
   bytecode              String?
   deployedBytecode      String?
   abi                   String? // Store ABI as JSON string
@@ -33,4 +39,17 @@ model Contract {
   @@index([networkId])
   @@index([entity])
   @@map("contracts")
+}
+
+model Wallet {
+  id        Int     @id @default(autoincrement())
+  address   String
+  networkId Int
+  entity    String?
+  label     String?
+
+  @@unique([address, networkId])
+  @@index([networkId])
+  @@index([entity])
+  @@map("wallets")
 }
