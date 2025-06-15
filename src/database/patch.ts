@@ -14,7 +14,8 @@ import {
 
 import { type KyselyPlugin } from "kysely";
 
-// SqliteBooleanPlugin is necessary because kysely doesn't support boolean types
+// The code below is necessary to make kysely cast number to booleans (sqlite doesn't support booleans)
+
 export class SqliteBooleanPlugin implements KyselyPlugin {
   readonly #transformer = new SqliteBooleanTransformer();
 

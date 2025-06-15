@@ -30,6 +30,7 @@ model Contract {
   proxyType             String?
   implementationAddress String?
   entity                String?
+  label                 String?
   bytecode              String?
   deployedBytecode      String?
   abi                   String? // Store ABI as JSON string
@@ -38,4 +39,17 @@ model Contract {
   @@index([networkId])
   @@index([entity])
   @@map("contracts")
+}
+
+model Wallet {
+  id        Int     @id @default(autoincrement())
+  address   String
+  networkId Int
+  entity    String?
+  label     String?
+
+  @@unique([address, networkId])
+  @@index([networkId])
+  @@index([entity])
+  @@map("wallets")
 }
