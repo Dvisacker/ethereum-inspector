@@ -1,6 +1,6 @@
 {
   "name": "wallet-inspector",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "main": "dist/src/index.js",
   "bin": {
     "searchor": "./dist/src/index.js"
@@ -15,12 +15,23 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:reset": "prisma db push --force-reset",
-    "db:seed": "tsx src/database/example.ts"
+    "db:seed": "tsx src/database/example.ts",
+    "version": "node scripts/version.js",
+    "postversion": "git push && git push --tags"
   },
-  "keywords": [],
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "ethereum",
+    "wallet",
+    "analysis",
+    "blockchain",
+    "cli"
+  ],
   "author": "",
-  "license": "ISC",
-  "description": "Wallet inspector tool",
+  "license": "MIT",
+  "description": "A powerful command-line tool for deep analysis of Ethereum addresses",
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/commander": "^2.12.0",
