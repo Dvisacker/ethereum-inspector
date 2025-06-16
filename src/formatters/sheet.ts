@@ -5,7 +5,15 @@ import * as path from "path";
 import * as XLSX from "xlsx-js-style";
 import { getTokenDecimalsByAddress, NetworkId } from "../constants";
 import { Transfer } from "../types";
-import { getLightRedGradient, shortAddr, shortHash } from "../helpers";
+import {
+  getLightRedGradient,
+  shortAddr,
+  shortHash,
+  getEtherscanTxLink,
+  getEtherscanAddressLink,
+  getDebankLink,
+  getArkhamLink,
+} from "../helpers";
 import { BridgeTransaction } from "../bridges/types";
 
 export interface ContractInfo {
@@ -372,7 +380,7 @@ export class XLSXExporter {
       rows.push([
         {
           v: shortAddr(wallet.address),
-          l: { Target: `https://etherscan.io/address/${wallet.address}` },
+          l: { Target: getEtherscanAddressLink(wallet.address) },
           s: addressStyle,
         },
         {
@@ -389,14 +397,12 @@ export class XLSXExporter {
         },
         {
           v: "DEB",
-          l: { Target: `https://debank.com/profile/${wallet.address}` },
+          l: { Target: getDebankLink(wallet.address) },
           s: cellBorder,
         },
         {
           v: "ARK",
-          l: {
-            Target: `https://intel.arkm.com/visualizer/entity/${wallet.address}`,
-          },
+          l: { Target: getArkhamLink(wallet.address) },
           s: cellBorder,
         },
       ]);
@@ -425,7 +431,7 @@ export class XLSXExporter {
       rows.push([
         {
           v: shortAddr(contract.address),
-          l: { Target: `https://etherscan.io/address/${contract.address}` },
+          l: { Target: getEtherscanAddressLink(contract.address) },
           s: addressStyle,
         },
         {
@@ -484,7 +490,6 @@ export class XLSXExporter {
 
   writeTransfersSheet(transfers: Transfer[]) {
     const rows: any[][] = [];
-    // Header row with style
     rows.push([
       { v: "From", s: headerStyle },
       { v: "To", s: headerStyle },
@@ -511,17 +516,17 @@ export class XLSXExporter {
       rows.push([
         {
           v: shortAddr(t.from),
-          l: { Target: `https://etherscan.io/address/${t.from}` },
+          l: { Target: getEtherscanAddressLink(t.from) },
           s: fromFill ? { fill: fromFill } : undefined,
         },
         {
           v: shortAddr(t.to),
-          l: { Target: `https://etherscan.io/address/${t.to}` },
+          l: { Target: getEtherscanAddressLink(t.to) },
           s: toFill ? { fill: toFill } : undefined,
         },
         {
           v: shortAddr(t.tokenAddress),
-          l: { Target: `https://etherscan.io/address/${t.tokenAddress}` },
+          l: { Target: getEtherscanAddressLink(t.tokenAddress) },
           s: tokenFill ? { fill: tokenFill } : undefined,
         },
         t.symbol,
@@ -529,7 +534,7 @@ export class XLSXExporter {
         amount.toString(),
         {
           v: shortHash(t.txHash),
-          l: { Target: `https://etherscan.io/tx/${t.txHash}` },
+          l: { Target: getEtherscanTxLink(t.txHash) },
         },
         t.blockNumber,
         new Date(t.timestamp * 1000).toLocaleString("en-US", {
@@ -562,17 +567,17 @@ export class XLSXExporter {
       rows.push([
         {
           v: shortHash(tx.hash),
-          l: { Target: `https://etherscan.io/tx/${tx.hash}` },
+          l: { Target: getEtherscanTxLink(tx.hash) },
           s: cellBorder,
         },
         {
           v: shortAddr(tx.from),
-          l: { Target: `https://etherscan.io/address/${tx.from}` },
+          l: { Target: getEtherscanAddressLink(tx.from) },
           s: fromFill ? { ...cellBorder, fill: fromFill } : cellBorder,
         },
         {
           v: shortAddr(tx.to),
-          l: { Target: `https://etherscan.io/address/${tx.to}` },
+          l: { Target: getEtherscanAddressLink(tx.to) },
           s: toFill ? { ...cellBorder, fill: toFill } : cellBorder,
         },
         { v: tx.value, s: cellBorder },
@@ -623,13 +628,13 @@ export class XLSXExporter {
       rows.push([
         {
           v: shortHash(tx.txHash),
-          l: { Target: `https://etherscan.io/tx/${tx.txHash}` },
+          l: { Target: getEtherscanTxLink(tx.txHash) },
           s: cellBorder,
         },
         {
           v: tx.destTxHash ? shortHash(tx.destTxHash) : "",
           l: tx.destTxHash
-            ? { Target: `https://etherscan.io/tx/${tx.destTxHash}` }
+            ? { Target: getEtherscanTxLink(tx.destTxHash) }
             : undefined,
           s: cellBorder,
         },
@@ -638,14 +643,14 @@ export class XLSXExporter {
         { v: tx.toChain, s: cellBorder },
         {
           v: shortAddr(tx.fromToken),
-          l: { Target: `https://etherscan.io/address/${tx.fromToken}` },
+          l: { Target: getEtherscanAddressLink(tx.fromToken) },
           s: fromTokenFill
             ? { ...cellBorder, fill: fromTokenFill }
             : cellBorder,
         },
         {
           v: shortAddr(tx.toToken),
-          l: { Target: `https://etherscan.io/address/${tx.toToken}` },
+          l: { Target: getEtherscanAddressLink(tx.toToken) },
           s: toTokenFill ? { ...cellBorder, fill: toTokenFill } : cellBorder,
         },
         { v: tx.fromAmount, s: cellBorder },
@@ -654,12 +659,12 @@ export class XLSXExporter {
         { v: tx.toSymbol, s: cellBorder },
         {
           v: shortAddr(tx.sender),
-          l: { Target: `https://etherscan.io/address/${tx.sender}` },
+          l: { Target: getEtherscanAddressLink(tx.sender) },
           s: senderFill ? { ...cellBorder, fill: senderFill } : cellBorder,
         },
         {
           v: shortAddr(tx.recipient),
-          l: { Target: `https://etherscan.io/address/${tx.recipient}` },
+          l: { Target: getEtherscanAddressLink(tx.recipient) },
           s: recipientFill
             ? { ...cellBorder, fill: recipientFill }
             : cellBorder,
