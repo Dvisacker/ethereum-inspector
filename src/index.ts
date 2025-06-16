@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import {
+  BridgeTransaction,
   RelatedWalletInfo,
   TransactionAnalyzer,
   TransactionTimingAnalysis,
@@ -40,6 +41,7 @@ program
         let contracts: ContractInfo[] = [];
         let transfers: Transfer[] = [];
         let parsedTransactions: TransactionWithTimestamp[] = [];
+        let bridgeTransactions: BridgeTransaction[] = [];
         let timingAnalysis: TransactionTimingAnalysis;
 
         if (options.relatedWalletsThreshold) {
@@ -105,6 +107,10 @@ program
             {
               name: chalk.green("Transactions (only CSV)"),
               value: "transactions",
+            },
+            {
+              name: chalk.green("Bridge Transactions (only CSV, experimental)"),
+              value: "bridges",
             },
           ],
         });
@@ -197,6 +203,12 @@ program
           }
         }
 
+        if (answers2.action.includes("bridges")) {
+          let results = await analyzer.analyzeBridgeTransactions(address);
+
+          bridgeTransactions = results.bridgeTransactions;
+        }
+
         csvExporter.setupAddressColorMapping(
           wallets,
           contracts,
@@ -218,6 +230,10 @@ program
 
         if (answers2.action.includes("contracts")) {
           csvExporter.writeContractsSheet(contracts);
+        }
+
+        if (answers2.action.includes("bridges")) {
+          csvExporter.writeBridgeTransactionsSheet(bridgeTransactions);
         }
 
         csvExporter.exportAnalysisXLSX();

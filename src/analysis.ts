@@ -11,6 +11,9 @@ import { ethers } from "ethers";
 import { ContractInfo } from "./formatters/sheet";
 import { HyperSyncData } from "./types";
 import { ETHER } from "./constants";
+import { CCTPProvider } from "./bridges/providers/cctp";
+import { BridgeTransaction as BridgeTransactionType } from "./bridges/types";
+import { BridgeTransactionsFetcher } from "./bridges";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -51,10 +54,14 @@ export interface RelatedWalletTx {
   timestamp: number;
 }
 
+export interface BridgeTransaction extends BridgeTransactionType {}
+
 export class TransactionAnalyzer {
   private hyperSync: HyperSync;
   private etherscan: EtherscanClient;
   private arkham: ArkhamClient;
+  private axiosInstance: any;
+
   constructor() {
     this.hyperSync = new HyperSync();
     this.etherscan = new EtherscanClient(config.get("etherscanApiKey"));
@@ -419,6 +426,50 @@ export class TransactionAnalyzer {
       busiest6Hour,
       leastBusy6Hour,
       inferredTimezone: inferredTimezoneRegion,
+    };
+  }
+
+  async analyzeBridgeTransactions(address: string): Promise<{
+    bridgeTransactions: BridgeTransaction[];
+    relatedWallets: RelatedWalletInfo[];
+  }> {
+    const relatedWallets = new Set<string>();
+
+    const fetcher = new BridgeTransactionsFetcher();
+    const bridgeTransactions = await fetcher.fetchAllBridgeTransactions(
+      address
+    );
+
+    bridgeTransactions.forEach((tx: BridgeTransaction) => {
+      if (tx.sender && tx.sender !== address) {
+        relatedWallets.add(tx.sender);
+      }
+      if (tx.recipient && tx.recipient !== address) {
+        relatedWallets.add(tx.recipient);
+      }
+    });
+
+    // Sort transactions by timestamp (newest first)
+    bridgeTransactions.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Fetch wallet info for related addresses
+    const walletInfos = await Promise.all(
+      Array.from(relatedWallets).map(async (walletAddress) => {
+        const addressInfo = await safePromise(
+          this.arkham.fetchAddress(walletAddress)
+        );
+        return {
+          address: walletAddress,
+          txCount: 1,
+          entity: addressInfo?.arkhamEntity?.name || "Unknown",
+          label: addressInfo?.arkhamLabel?.name || "Unknown",
+        };
+      })
+    );
+
+    return {
+      bridgeTransactions,
+      relatedWallets: walletInfos,
     };
   }
 }

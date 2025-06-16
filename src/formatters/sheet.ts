@@ -6,6 +6,7 @@ import * as XLSX from "xlsx-js-style";
 import { getTokenDecimalsByAddress, NetworkId } from "../constants";
 import { Transfer } from "../types";
 import { getLightRedGradient, shortAddr, shortHash } from "../helpers";
+import { BridgeTransaction } from "../bridges/types";
 
 export interface ContractInfo {
   address: string;
@@ -18,10 +19,14 @@ export interface ContractInfo {
   implementationName?: string;
 }
 
-const TIMING_ANALYSIS_COL_WIDTHS = [30, 20, 20];
-const RELATED_WALLETS_COL_WIDTHS = [44, 18, 22, 32, 12, 12];
-const CONTRACTS_COL_WIDTHS = [44, 18, 22, 32, 32, 12, 18, 32];
-const TRANSFERS_COL_WIDTHS = [44, 44, 44, 14, 24, 66, 14];
+const TIMING_ANALYSIS_COL_WIDTHS = [30, 24, 20];
+const RELATED_WALLETS_COL_WIDTHS = [24, 18, 22, 32, 12, 12];
+const CONTRACTS_COL_WIDTHS = [24, 12, 22, 32, 32, 12, 18, 32];
+const TRANSFERS_COL_WIDTHS = [24, 24, 24, 14, 30, 14, 44, 14, 24];
+const BRIDGE_TRANSACTIONS_COL_WIDTHS = [
+  24, 24, 20, 14, 14, 24, 24, 24, 24, 14, 14, 14, 14, 32,
+];
+const TRANSACTIONS_COL_WIDTHS = [24, 24, 24, 14, 14, 32];
 
 // Address color constants for the 20 most frequent addresses
 const ADDRESS_COLORS = [
@@ -392,6 +397,7 @@ export class XLSXExporter {
           l: {
             Target: `https://intel.arkm.com/visualizer/entity/${wallet.address}`,
           },
+          s: cellBorder,
         },
       ]);
     });
@@ -557,36 +563,124 @@ export class XLSXExporter {
         {
           v: shortHash(tx.hash),
           l: { Target: `https://etherscan.io/tx/${tx.hash}` },
+          s: cellBorder,
         },
         {
           v: shortAddr(tx.from),
           l: { Target: `https://etherscan.io/address/${tx.from}` },
-          s: fromFill ? { fill: fromFill } : undefined,
+          s: fromFill ? { ...cellBorder, fill: fromFill } : cellBorder,
         },
         {
           v: shortAddr(tx.to),
           l: { Target: `https://etherscan.io/address/${tx.to}` },
-          s: toFill ? { fill: toFill } : undefined,
+          s: toFill ? { ...cellBorder, fill: toFill } : cellBorder,
         },
-        tx.value,
-        tx.blockNumber,
-        new Date(tx.timestamp * 1000).toLocaleString("en-US", {
-          timeZone: "UTC",
-          dateStyle: "short",
-          timeStyle: "medium",
-        }),
+        { v: tx.value, s: cellBorder },
+        { v: tx.blockNumber, s: cellBorder },
+        {
+          v: new Date(tx.timestamp * 1000).toLocaleString("en-US", {
+            timeZone: "UTC",
+            dateStyle: "short",
+            timeStyle: "medium",
+          }),
+          s: cellBorder,
+        },
       ]);
     }
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [
-      { wch: 66 }, // Tx Hash
-      { wch: 44 }, // From
-      { wch: 44 }, // To
-      { wch: 24 }, // Value
-      { wch: 14 }, // Block #
-      { wch: 32 }, // Timestamp
-    ];
+    ws["!cols"] = TRANSACTIONS_COL_WIDTHS.map((wch) => ({ wch }));
     XLSX.utils.book_append_sheet(this.workbook, ws, "Transactions");
+  }
+
+  writeBridgeTransactionsSheet(transactions: BridgeTransaction[]) {
+    const rows: any[][] = [];
+    rows.push([
+      { v: "Source Tx Hash", s: headerStyle },
+      { v: "Destination Tx Hash", s: headerStyle },
+      { v: "Bridge", s: headerStyle },
+      { v: "From Chain", s: headerStyle },
+      { v: "To Chain", s: headerStyle },
+      { v: "From Token", s: headerStyle },
+      { v: "To Token", s: headerStyle },
+      { v: "From Amount", s: headerStyle },
+      { v: "To Amount", s: headerStyle },
+      { v: "From Symbol", s: headerStyle },
+      { v: "To Symbol", s: headerStyle },
+      { v: "Sender", s: headerStyle },
+      { v: "Recipient", s: headerStyle },
+      { v: "Timestamp", s: headerStyle },
+      { v: "Status", s: headerStyle },
+      { v: "Block #", s: headerStyle },
+      { v: "Dest Block #", s: headerStyle },
+    ]);
+
+    for (const tx of transactions) {
+      const senderFill = this.getAddressColor(tx.sender);
+      const recipientFill = this.getAddressColor(tx.recipient);
+      const fromTokenFill = this.getAddressColor(tx.fromToken);
+      const toTokenFill = this.getAddressColor(tx.toToken);
+
+      rows.push([
+        {
+          v: shortHash(tx.txHash),
+          l: { Target: `https://etherscan.io/tx/${tx.txHash}` },
+          s: cellBorder,
+        },
+        {
+          v: tx.destTxHash ? shortHash(tx.destTxHash) : "",
+          l: tx.destTxHash
+            ? { Target: `https://etherscan.io/tx/${tx.destTxHash}` }
+            : undefined,
+          s: cellBorder,
+        },
+        { v: tx.bridge, s: cellBorder },
+        { v: tx.fromChain, s: cellBorder },
+        { v: tx.toChain, s: cellBorder },
+        {
+          v: shortAddr(tx.fromToken),
+          l: { Target: `https://etherscan.io/address/${tx.fromToken}` },
+          s: fromTokenFill
+            ? { ...cellBorder, fill: fromTokenFill }
+            : cellBorder,
+        },
+        {
+          v: shortAddr(tx.toToken),
+          l: { Target: `https://etherscan.io/address/${tx.toToken}` },
+          s: toTokenFill ? { ...cellBorder, fill: toTokenFill } : cellBorder,
+        },
+        { v: tx.fromAmount, s: cellBorder },
+        { v: tx.toAmount, s: cellBorder },
+        { v: tx.fromSymbol, s: cellBorder },
+        { v: tx.toSymbol, s: cellBorder },
+        {
+          v: shortAddr(tx.sender),
+          l: { Target: `https://etherscan.io/address/${tx.sender}` },
+          s: senderFill ? { ...cellBorder, fill: senderFill } : cellBorder,
+        },
+        {
+          v: shortAddr(tx.recipient),
+          l: { Target: `https://etherscan.io/address/${tx.recipient}` },
+          s: recipientFill
+            ? { ...cellBorder, fill: recipientFill }
+            : cellBorder,
+        },
+        {
+          v: new Date(tx.timestamp * 1000).toLocaleString("en-US", {
+            timeZone: "UTC",
+            dateStyle: "short",
+            timeStyle: "medium",
+          }),
+          s: cellBorder,
+        },
+        { v: tx.status, s: cellBorder },
+        { v: tx.blockNumber, s: cellBorder },
+        { v: tx.destBlockNumber || "", s: cellBorder },
+      ]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = BRIDGE_TRANSACTIONS_COL_WIDTHS.map((wch) => ({ wch }));
+    XLSX.utils.book_append_sheet(this.workbook, ws, "Bridge Transactions");
   }
 
   exportAnalysisXLSX(outputPath?: string) {
