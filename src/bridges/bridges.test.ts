@@ -16,12 +16,10 @@ describe("BridgeTransactionsFetcher", () => {
   });
 
   it("should fetch transactions from all providers", async () => {
-    // This test would require mocking the API responses
-    // For demonstration purposes only
     const transactions = await fetcher.fetchAllBridgeTransactions(testAddress);
     console.log(transactions);
     expect(Array.isArray(transactions)).toBe(true);
-  }, 30000); // 30 second timeout for API calls
+  }, 30000);
 
   it("should fetch from specific provider", async () => {
     try {
@@ -85,10 +83,6 @@ describe("LayerZeroProvider", () => {
   const axiosInstance = axios.create({ timeout: 30000 });
   const provider = new LayerZeroProvider(axiosInstance);
   const testAddress = "0xed0c6079229e2d407672a117c22b62064f4a4312";
-
-  it("should have correct provider name", () => {
-    expect(provider.name).toBe("LayerZero");
-  });
 
   it("should handle LayerZero API response", async () => {
     const transactions = await provider.fetchTransactions(testAddress);

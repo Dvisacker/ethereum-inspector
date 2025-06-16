@@ -5,6 +5,7 @@ import { SocketProvider } from "./providers/socket";
 import { DlnProvider } from "./providers/dln";
 import { RelayProvider } from "./providers/relay";
 import { LayerZeroProvider } from "./providers/layerzero";
+import { CCTPProvider } from "./providers/cctp";
 
 export class BridgeTransactionsFetcher {
   private readonly axiosInstance: AxiosInstance;
@@ -19,11 +20,12 @@ export class BridgeTransactionsFetcher {
     });
 
     this.providers = [
-      new LifiProvider(this.axiosInstance),
-      new SocketProvider(this.axiosInstance),
+      // new LifiProvider(this.axiosInstance) // TODO
+      // new SocketProvider(this.axiosInstance) // TODO
       new DlnProvider(this.axiosInstance),
       new RelayProvider(this.axiosInstance),
       new LayerZeroProvider(this.axiosInstance),
+      new CCTPProvider(this.axiosInstance),
     ];
   }
 
