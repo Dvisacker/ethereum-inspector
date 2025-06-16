@@ -168,3 +168,150 @@ export interface RelayRequest {
 export interface RelayResponse {
   requests: RelayRequest[];
 }
+
+// LayerZero API Types
+export interface LayerZeroMessage {
+  pathway: {
+    srcEid: number;
+    dstEid: number;
+    sender: {
+      address: string;
+      id: string;
+      name: string;
+      chain: string;
+    };
+    receiver: {
+      address: string;
+      id: string;
+      name: string;
+      chain: string;
+    };
+    id: string;
+    nonce: number;
+  };
+  source: {
+    status: string;
+    tx: {
+      txHash: string;
+      blockHash: string;
+      blockNumber: string;
+      blockTimestamp: number;
+      from: string;
+      blockConfirmations: number;
+      payload: string;
+      value: string;
+      readinessTimestamp: number;
+      resolvedPayload: string;
+      adapterParams: {
+        version: string;
+        dstGasLimit: string;
+        dstNativeGasTransferAmount: string;
+        dstNativeGasTransferAddress: string;
+      };
+      options: {
+        lzReceive: {
+          gas: string;
+          value: string;
+        };
+        nativeDrop: Array<{
+          amount: string;
+          receiver: string;
+        }>;
+        compose: Array<{
+          index: number;
+          gas: string;
+          value: string;
+        }>;
+        ordered: boolean;
+      };
+    };
+    failedTx: string[];
+  };
+  destination: {
+    status: string;
+    tx: {
+      txHash: string;
+      blockHash: string;
+      blockNumber: number;
+      blockTimestamp: number;
+    };
+    payloadStoredTx: string;
+    failedTx: string[];
+  };
+  verification: {
+    dvn: {
+      dvns: Record<
+        string,
+        {
+          txHash: string;
+          blockHash: string;
+          blockNumber: number;
+          blockTimestamp: number;
+          proof: {
+            packetHeader: string;
+            payloadHash: string;
+          };
+          optional: boolean;
+          status: string;
+        }
+      >;
+      status: string;
+    };
+    sealer: {
+      tx: {
+        txHash: string;
+        blockHash: string;
+        blockNumber: number;
+        blockTimestamp: number;
+      };
+      failedTx: Array<{
+        txHash: string;
+        txError: string;
+      }>;
+      status: string;
+    };
+  };
+  guid: string;
+  config: {
+    error: boolean;
+    errorMessage: string;
+    dvnConfigError: boolean;
+    receiveLibrary: string;
+    sendLibrary: string;
+    inboundConfig: {
+      confirmations: number;
+      requiredDVNCount: number;
+      optionalDVNCount: number;
+      optionalDVNThreshold: number;
+      requiredDVNs: string[];
+      requiredDVNNames: string[];
+      optionalDVNs: string[];
+      optionalDVNNames: string[];
+      executor: string;
+    };
+    outboundConfig: {
+      confirmations: number;
+      requiredDVNCount: number;
+      optionalDVNCount: number;
+      optionalDVNThreshold: number;
+      requiredDVNs: string[];
+      requiredDVNNames: string[];
+      optionalDVNs: string[];
+      optionalDVNNames: string[];
+      executor: string;
+    };
+    ulnSendVersion: string;
+    ulnReceiveVersion: string;
+  };
+  status: {
+    name: string;
+    message: string;
+  };
+  created: string;
+  updated: string;
+}
+
+export interface LayerZeroResponse {
+  data: LayerZeroMessage[];
+  nextToken?: string;
+}
