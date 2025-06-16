@@ -19,31 +19,36 @@ export class RelayProvider implements BridgeProvider {
         }
       );
 
-      return response.data.requests.map(this.normalizeRelayRequest);
+      return response.data.requests.map((request) =>
+        this.normalizeRelayRequest(request)
+      );
     } catch (error) {
       throw new Error(`Relay API error: ${error}`);
     }
   }
 
   private normalizeRelayRequest(request: any): BridgeTransaction {
+    const currencyIn = request.data?.metadata?.currencyIn;
+    const currencyOut = request.data?.metadata?.currencyOut;
+
     return {
-      txHash: request.hash,
-      destTxHash: request.destinationTxHash,
+      txHash: request.id,
+      destTxHash: request.data?.outTxs?.[0]?.hash,
       bridge: "Relay",
-      fromChain: request.originChainId,
-      toChain: request.destinationChainId,
-      fromToken: request.currency,
-      toToken: request.currency,
-      fromAmount: request.amount,
-      toAmount: request.amount,
-      fromSymbol: "Unknown", // Relay API uses currency code, need to map
-      toSymbol: "Unknown",
+      fromChain: request.data?.inTxs?.[0]?.chainId,
+      toChain: request.data?.outTxs?.[0]?.chainId,
+      fromToken: currencyIn?.currency?.address || request.data?.currency,
+      toToken: currencyOut?.currency?.address || request.data?.currency,
+      fromAmount: currencyIn?.amount || request.data?.price,
+      toAmount: currencyOut?.amount || request.data?.price,
+      fromSymbol: currencyIn?.currency?.symbol || "Unknown",
+      toSymbol: currencyOut?.currency?.symbol || "Unknown",
       sender: request.user,
       recipient: request.recipient,
       timestamp: new Date(request.createdAt).getTime() / 1000,
       status: this.mapRelayStatus(request.status),
-      blockNumber: request.blockNumber,
-      destBlockNumber: request.destinationBlockNumber,
+      blockNumber: request.data?.inTxs?.[0]?.block,
+      destBlockNumber: request.data?.outTxs?.[0]?.block,
     };
   }
 
