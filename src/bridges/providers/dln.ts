@@ -23,39 +23,45 @@ export class DlnProvider implements BridgeProvider {
         }
       );
 
-      return response.data.orders.map(this.normalizeDlnOrder);
+      return response.data.orders.map((order) => this.normalizeDlnOrder(order));
     } catch (error) {
       throw new Error(`DLN API error: ${error}`);
     }
   }
 
   private normalizeDlnOrder(order: any): BridgeTransaction {
+    // Extract give (source) and take (destination) details
+    const give = order.giveOfferWithMetadata;
+    const take = order.takeOfferWithMetadata;
+
     return {
-      txHash: order.createTx.txHash,
-      destTxHash: order.fulfillTx?.txHash,
+      txHash: order.createEventTransactionHash?.stringValue || "",
+      destTxHash: "", // Not available in the new API response
       bridge: "DLN",
-      fromChain: order.giveChainId,
-      toChain: order.takeChainId,
-      fromToken: order.giveTokenAddress,
-      toToken: order.takeTokenAddress,
-      fromAmount: order.giveAmount,
-      toAmount: order.takeAmount,
-      fromSymbol: "Unknown", // DLN API doesn't provide token symbols
-      toSymbol: "Unknown",
-      sender: order.makerSrc,
-      recipient: order.receiverDst,
-      timestamp: new Date(order.createdAt).getTime() / 1000,
+      fromChain: parseInt(give.chainId.stringValue),
+      toChain: parseInt(take.chainId.stringValue),
+      fromToken: give.tokenAddress.stringValue,
+      toToken: take.tokenAddress.stringValue,
+      fromAmount: give.amount.stringValue,
+      toAmount: take.amount.stringValue,
+      fromSymbol: give.metadata?.symbol || "Unknown",
+      toSymbol: take.metadata?.symbol || "Unknown",
+      sender: order.affiliateFee?.beneficiarySrc?.stringValue || "",
+      recipient: order.unlockAuthorityDst?.stringValue || "",
+      timestamp: order.creationTimestamp,
       status: this.mapDlnStatus(order.state),
-      blockNumber: order.createTx.blockNumber,
-      destBlockNumber: order.fulfillTx?.blockNumber,
+      blockNumber: 0, // Not available in the new API response
+      destBlockNumber: 0, // Not available in the new API response
     };
   }
 
   private mapDlnStatus(state: string): "pending" | "completed" | "failed" {
     switch (state.toLowerCase()) {
+      case "claimedunlock":
       case "fulfilled":
         return "completed";
       case "cancelled":
+      case "expired":
         return "failed";
       default:
         return "pending";
