@@ -589,6 +589,97 @@ export class XLSXExporter {
     XLSX.utils.book_append_sheet(this.workbook, ws, "Transactions");
   }
 
+  writeBridgeTransactionsSheet(transactions: BridgeTransaction[]) {
+    const rows: any[][] = [];
+    rows.push([
+      { v: "Source Tx Hash", s: headerStyle },
+      { v: "Destination Tx Hash", s: headerStyle },
+      { v: "Bridge", s: headerStyle },
+      { v: "From Chain", s: headerStyle },
+      { v: "To Chain", s: headerStyle },
+      { v: "From Token", s: headerStyle },
+      { v: "To Token", s: headerStyle },
+      { v: "From Amount", s: headerStyle },
+      { v: "To Amount", s: headerStyle },
+      { v: "From Symbol", s: headerStyle },
+      { v: "To Symbol", s: headerStyle },
+      { v: "Sender", s: headerStyle },
+      { v: "Recipient", s: headerStyle },
+      { v: "Timestamp", s: headerStyle },
+      { v: "Status", s: headerStyle },
+      { v: "Block #", s: headerStyle },
+      { v: "Dest Block #", s: headerStyle },
+    ]);
+
+    for (const tx of transactions) {
+      const senderFill = this.getAddressColor(tx.sender);
+      const recipientFill = this.getAddressColor(tx.recipient);
+      const fromTokenFill = this.getAddressColor(tx.fromToken);
+      const toTokenFill = this.getAddressColor(tx.toToken);
+
+      rows.push([
+        {
+          v: shortHash(tx.txHash),
+          l: { Target: `https://etherscan.io/tx/${tx.txHash}` },
+          s: cellBorder,
+        },
+        {
+          v: tx.destTxHash ? shortHash(tx.destTxHash) : "",
+          l: tx.destTxHash
+            ? { Target: `https://etherscan.io/tx/${tx.destTxHash}` }
+            : undefined,
+          s: cellBorder,
+        },
+        { v: tx.bridge, s: cellBorder },
+        { v: tx.fromChain, s: cellBorder },
+        { v: tx.toChain, s: cellBorder },
+        {
+          v: shortAddr(tx.fromToken),
+          l: { Target: `https://etherscan.io/address/${tx.fromToken}` },
+          s: fromTokenFill
+            ? { ...cellBorder, fill: fromTokenFill }
+            : cellBorder,
+        },
+        {
+          v: shortAddr(tx.toToken),
+          l: { Target: `https://etherscan.io/address/${tx.toToken}` },
+          s: toTokenFill ? { ...cellBorder, fill: toTokenFill } : cellBorder,
+        },
+        { v: tx.fromAmount, s: cellBorder },
+        { v: tx.toAmount, s: cellBorder },
+        { v: tx.fromSymbol, s: cellBorder },
+        { v: tx.toSymbol, s: cellBorder },
+        {
+          v: shortAddr(tx.sender),
+          l: { Target: `https://etherscan.io/address/${tx.sender}` },
+          s: senderFill ? { ...cellBorder, fill: senderFill } : cellBorder,
+        },
+        {
+          v: shortAddr(tx.recipient),
+          l: { Target: `https://etherscan.io/address/${tx.recipient}` },
+          s: recipientFill
+            ? { ...cellBorder, fill: recipientFill }
+            : cellBorder,
+        },
+        {
+          v: new Date(tx.timestamp * 1000).toLocaleString("en-US", {
+            timeZone: "UTC",
+            dateStyle: "short",
+            timeStyle: "medium",
+          }),
+          s: cellBorder,
+        },
+        { v: tx.status, s: cellBorder },
+        { v: tx.blockNumber, s: cellBorder },
+        { v: tx.destBlockNumber || "", s: cellBorder },
+      ]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = BRIDGE_TRANSACTIONS_COL_WIDTHS.map((wch) => ({ wch }));
+    XLSX.utils.book_append_sheet(this.workbook, ws, "Bridge Transactions");
+  }
+
   exportAnalysisXLSX(outputPath?: string) {
     if (!outputPath) {
       const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
