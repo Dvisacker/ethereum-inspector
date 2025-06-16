@@ -16,7 +16,6 @@ View an [example analysis](https://docs.google.com/spreadsheets/d/1vczcM9H1sLU1i
 
 ## 📊 Features
 
-### Transaction Analysis
 - **Timing Analysis**
   - Busiest periods and work/sleep windows
   - Timezone inference
