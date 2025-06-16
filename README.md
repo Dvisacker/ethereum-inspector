@@ -8,7 +8,7 @@
 
 </div>
 
-A command-line tool for deep analysis of Ethereum addresses. Uncover transaction patterns, identify related wallets and download a spreadsheet with the results. Work in progress.
+A command-line tool for in-depth analysis of Ethereum addresses. Uncover transaction patterns, identify related wallets and download a spreadsheet with the results. Work in progress.
 
 ## 📝 Example Results
 

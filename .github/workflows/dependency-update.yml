@@ -1,0 +1,83 @@
+name: Dependency Update
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: main
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Check for updates
+      id: check
+      run: |
+        echo "Checking for outdated dependencies..."
+        npm outdated || true
+        echo "Running security audit..."
+        npm audit || true
+
+    - name: Update dependencies
+      run: |
+        echo "Updating dependencies..."
+        npm update
+        echo "Fixing security vulnerabilities..."
+        npm audit fix || true
+
+    - name: Check for changes
+      id: changes
+      run: |
+        git add package.json package-lock.json
+        if git diff --staged --quiet; then
+          echo "No updates needed"
+          exit 0
+        fi
+
+    - name: Create Pull Request
+      if: steps.changes.outcome == 'success'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore: update dependencies'
+        title: 'chore: update dependencies'
+        body: |
+          Automated dependency updates:
+          
+          ## Changes
+          - Updated npm packages to their latest compatible versions
+          - Applied security fixes from npm audit
+          
+          ## How to Review
+          1. Check the package.json changes
+          2. Verify the updates are compatible
+          3. Test the changes locally
+          
+          ## Security
+          - All updates are to compatible versions
+          - Security fixes are included
+          
+          This PR was automatically created by the dependency update workflow.
+        branch: dependency-updates
+        base: main
+        labels: |
+          dependencies
+          automated pr
+        delete-branch: true 
