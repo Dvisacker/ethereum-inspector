@@ -4,7 +4,7 @@ A comprehensive bridge transactions fetcher that aggregates cross-chain transact
 
 ## Features
 
-- **Multi-Provider Support**: Fetches transactions from Lifi, Socket, DLN, and Relay
+- **Multi-Provider Support**: Fetches transactions from Lifi, Socket, DLN, Relay, and LayerZero
 - **Unified Interface**: Normalizes data from different APIs into a consistent format
 - **Error Handling**: Gracefully handles API failures and rate limiting
 - **Extensible**: Easy to add new bridge providers
@@ -33,6 +33,16 @@ A comprehensive bridge transactions fetcher that aggregates cross-chain transact
 - **Method**: GET
 - **Features**: Fast bridging with relayer network
 
+### 5. LayerZero
+- **URL**: `https://scan.layerzero-api.com/v1/messages/{address}`
+- **Method**: GET
+- **Features**: Cross-chain message passing and omnichain transactions
+- **Special**: 
+  - Message-based architecture (not just token transfers)
+  - LayerZero chain ID to standard chain ID conversion
+  - Comprehensive status tracking (DELIVERED, INFLIGHT, FAILED, PAYLOAD_STORED, BLOCKED)
+  - Official LayerZero Scan API integration
+
 ## Usage
 
 ### Basic Usage
@@ -48,6 +58,7 @@ const allTransactions = await fetcher.fetchAllBridgeTransactions(address);
 
 // Fetch from specific provider
 const socketTransactions = await fetcher.fetchFromProvider('Socket', address);
+const layerZeroTransactions = await fetcher.fetchFromProvider('LayerZero', address);
 
 // Get supported providers
 const providers = fetcher.getSupportedProviders();
@@ -56,16 +67,18 @@ const providers = fetcher.getSupportedProviders();
 ### Using Individual Providers
 
 ```typescript
-import { SocketProvider, LifiProvider } from './src/bridges/providers';
+import { SocketProvider, LifiProvider, LayerZeroProvider } from './src/bridges/providers';
 import axios from 'axios';
 
 const axiosInstance = axios.create({ timeout: 30000 });
 const socketProvider = new SocketProvider(axiosInstance);
 const lifiProvider = new LifiProvider(axiosInstance);
+const layerZeroProvider = new LayerZeroProvider(axiosInstance);
 
 // Use individual providers directly
 const socketTxs = await socketProvider.fetchTransactions(address);
 const lifiTxs = await lifiProvider.fetchTransactions(address);
+const layerZeroTxs = await layerZeroProvider.fetchTransactions(address);
 ```
 
 ### Advanced Usage
@@ -134,32 +147,36 @@ Common chain IDs used in responses:
 - `8453` - Base
 - `42161` - Arbitrum
 
-## LayerZero Integration (Future)
+## LayerZero Integration ✅
 
-### Suggested Implementation
+### Current Implementation
 
-LayerZero provides cross-chain messaging infrastructure. To fetch LayerZero transactions:
+LayerZero integration is now **fully implemented** using the official LayerZero Scan API from [https://scan.layerzero-api.com/v1/swagger](https://scan.layerzero-api.com/v1/swagger):
 
 ```typescript
-// Conceptual LayerZero API endpoints:
-// 1. LayerZero Scan API
-const layerZeroUrl = 'https://layerzeroscan.com/api/messages';
-
-// 2. LayerZero Network API
-const layerZeroNetworkUrl = 'https://api.layerzero.network/messages';
+// Official LayerZero Scan API
+const layerZeroUrl = 'https://scan.layerzero-api.com/v1/messages/{address}';
 
 // Parameters:
-// - address: wallet address
-// - srcChainId: source chain ID (optional)
-// - dstChainId: destination chain ID (optional)
-// - limit: number of results
+// - stage: "mainnet" or "testnet"
+// - limit: number of results (default: 100)
+// - offset: pagination offset (default: 0)
 ```
 
-### Implementation Notes
+### Implementation Features
 
-1. **Message vs Transaction**: LayerZero deals with messages, not just token transfers
-2. **Omnichain Apps**: Different apps use LayerZero differently (Stargate, Aptos Bridge, etc.)
-3. **Status Tracking**: Messages have states like INFLIGHT, DELIVERED, FAILED
+1. **Message-Based Architecture**: LayerZero deals with cross-chain messages, not just token transfers
+2. **Chain ID Conversion**: Converts LayerZero endpoint IDs to standard chain IDs
+   - `101` → `1` (Ethereum)
+   - `102` → `56` (BSC)
+   - `110` → `42161` (Arbitrum)
+   - `111` → `10` (Optimism)
+   - `183` → `8453` (Base)
+3. **Comprehensive Status Mapping**:
+   - `DELIVERED` → `completed`
+   - `FAILED`/`REVERTED`/`BLOCKED` → `failed`
+   - `INFLIGHT`/`PENDING`/`CONFIRMING`/`PAYLOAD_STORED` → `pending`
+4. **TypeScript Integration**: Full type safety with `LayerZeroMessage` and `LayerZeroResponse` interfaces
 
 ## CCTP Integration (Future)
 
