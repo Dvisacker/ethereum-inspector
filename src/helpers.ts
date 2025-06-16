@@ -126,3 +126,19 @@ export function getLightRedGradient(percent: number) {
   const hex = (n: number) => n.toString(16).padStart(2, "0").toUpperCase();
   return { rgb: `${hex(r)}${hex(g)}${hex(b)}` };
 }
+
+export function getEtherscanTxLink(txHash: string): string {
+  return `https://etherscan.io/tx/${txHash}`;
+}
+
+export function getEtherscanAddressLink(address: string): string {
+  return `https://etherscan.io/address/${address}`;
+}
+
+export function getDebankLink(address: string): string {
+  return `https://debank.com/profile/${address}`;
+}
+
+export function getArkhamLink(address: string): string {
+  return `https://intel.arkm.com/visualizer/entity/${address}`;
+}

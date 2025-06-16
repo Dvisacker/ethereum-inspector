@@ -12,7 +12,7 @@ A command-line tool for deep analysis of Ethereum addresses. Uncover transaction
 
 ## 📝 Example Results
 
-View an [example analysis](https://docs.google.com/spreadsheets/d/1vczcM9H1sLU1i7BBWB1b4XgvYOX_xD56e3DJa4yNrhE/edit?gid=167015203#gid=167015203) of Abraxas (an Italian crypto fund).
+View an [example analysis](https://docs.google.com/spreadsheets/d/1RuktzgHN5rJWhF7w5q6023j-Xv3DJi71FkExS24kxeM/edit?usp=sharing) of Abraxas (an Italian crypto fund).
 
 ## 📊 Features
 
@@ -37,6 +37,8 @@ View an [example analysis](https://docs.google.com/spreadsheets/d/1vczcM9H1sLU1i
   - Etherscan for contract verification
   - Arkham for entity data
   - HyperSync for efficient blockchain queries
+- **Bridge Transactions (alpha)**
+  - Bridge transactions from CCTP, LayerZero, Relay, etc.
 
 ## 🚀 Getting Started
 
