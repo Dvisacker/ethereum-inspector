@@ -74,17 +74,17 @@ export class LayerZeroProvider implements BridgeProvider {
   ): Promise<BridgeTransaction | null> {
     try {
       // Check if this is a Stargate V2 transaction (chain IDs >= 30000)
-      if (message.pathway.srcEid >= 30000 && message.pathway.dstEid >= 30000) {
-        const stargateV2Tx = await parseStargateV2Transaction(
-          message,
-          this.provider
-        );
-        if (stargateV2Tx) return stargateV2Tx;
-      }
+      // if (message.pathway.srcEid >= 30000 && message.pathway.dstEid >= 30000) {
+      //   const stargateV2Tx = await parseStargateV2Transaction(
+      //     message,
+      //     this.provider
+      //   );
+      //   if (stargateV2Tx) return stargateV2Tx;
+      // }
 
-      // Try Stargate V1 if not V2
-      const stargateTx = await parseStargateTransaction(message, this.provider);
-      if (stargateTx) return stargateTx;
+      // // Try Stargate V1 if not V2
+      // const stargateTx = await parseStargateTransaction(message, this.provider);
+      // if (stargateTx) return stargateTx;
 
       // If not a Stargate transaction, use default LayerZero normalization
       const sourceTx = message.source.tx;
