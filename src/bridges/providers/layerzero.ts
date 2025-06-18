@@ -9,6 +9,27 @@ import {
 import { parseStargateTransaction } from "../stargate-v1";
 import { parseStargateV2Transaction } from "../stargate-v2";
 
+export const chainMapping: { [key: number]: number } = {
+  // 101: 1, // Ethereum
+  // 102: 56, // BSC
+  // 106: 43114, // Avalanche
+  // 109: 137, // Polygon
+  // 110: 42161, // Arbitrum
+  // 111: 10, // Optimism
+  // 112: 250, // Fantom
+  // 183: 8453, // Base
+  // LayerZero v2 (new endpoint IDs)
+  30101: 1, // Ethereum Mainnet
+  30102: 56, // BNB Chain
+  30106: 43114, // Avalanche
+  30109: 137, // Polygon
+  30110: 42161, // Arbitrum
+  30111: 10, // Optimism
+  30112: 250, // Fantom
+  30184: 8453, // Base
+  // Add more mappings as needed
+};
+
 export class LayerZeroProvider implements BridgeProvider {
   name = "LayerZero";
   private readonly baseUrl = "https://scan.layerzero-api.com/v1";
@@ -16,9 +37,7 @@ export class LayerZeroProvider implements BridgeProvider {
 
   constructor(private axiosInstance: AxiosInstance) {
     // Initialize ethers provider for Stargate parsing
-    this.provider = new ethers.JsonRpcProvider(
-      process.env.ETH_RPC_URL || "https://eth.llamarpc.com"
-    );
+    this.provider = new ethers.JsonRpcProvider("https://eth.llamarpc.com");
   }
 
   async fetchTransactions(address: string): Promise<BridgeTransaction[]> {
@@ -69,18 +88,18 @@ export class LayerZeroProvider implements BridgeProvider {
     }
   }
 
-  private async normalizeLayerZeroMessage(
+  async normalizeLayerZeroMessage(
     message: LayerZeroMessage
   ): Promise<BridgeTransaction | null> {
     try {
       // Check if this is a Stargate V2 transaction (chain IDs >= 30000)
-      // if (message.pathway.srcEid >= 30000 && message.pathway.dstEid >= 30000) {
-      //   const stargateV2Tx = await parseStargateV2Transaction(
-      //     message,
-      //     this.provider
-      //   );
-      //   if (stargateV2Tx) return stargateV2Tx;
-      // }
+      if (message.pathway.srcEid >= 30000 && message.pathway.dstEid >= 30000) {
+        const stargateV2Tx = await parseStargateV2Transaction(
+          message,
+          this.provider
+        );
+        if (stargateV2Tx) return stargateV2Tx;
+      }
 
       // // Try Stargate V1 if not V2
       // const stargateTx = await parseStargateTransaction(message, this.provider);
@@ -132,29 +151,6 @@ export class LayerZeroProvider implements BridgeProvider {
   }
 
   private convertLayerZeroChainId(layerZeroChainId: number): number {
-    // Convert LayerZero endpoint IDs to standard chain IDs
-    const chainMapping: { [key: number]: number } = {
-      101: 1, // Ethereum
-      102: 56, // BSC
-      106: 43114, // Avalanche
-      109: 137, // Polygon
-      110: 42161, // Arbitrum
-      111: 10, // Optimism
-      112: 250, // Fantom
-      183: 8453, // Base
-      // LayerZero v2 (new endpoint IDs)
-      30101: 1, // Ethereum Mainnet
-      30102: 56, // BNB Chain
-      30106: 43114, // Avalanche
-      30320: 137, // Polygon
-      30421: 42161, // Arbitrum
-      30110: 10, // Optimism
-      30250: 250, // Fantom
-      30845: 8453, // Base
-      31337: 31337, // Hardhat/Localhost (example)
-      // Add more mappings as needed
-    };
-
     return chainMapping[layerZeroChainId] || layerZeroChainId;
   }
 
