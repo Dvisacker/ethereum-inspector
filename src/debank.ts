@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { Page } from 'puppeteer';
+import { Page, Browser } from 'puppeteer';
 import { logger } from './logger';
 
 // Add stealth plugin to puppeteer
@@ -8,7 +8,49 @@ puppeteer.use(StealthPlugin());
 
 // Queue for sequential processing
 let processingQueue: Promise<any> = Promise.resolve();
-const RATE_LIMIT_DELAY = 10000; // 10 seconds between requests
+const RATE_LIMIT_DELAY = 5000; // 5 seconds between requests
+
+// Shared browser instance
+let browserInstance: Browser | null = null;
+let browserInitPromise: Promise<Browser> | null = null;
+
+/**
+ * Initialize browser instance if not already initialized
+ */
+async function getBrowser(): Promise<Browser> {
+    if (browserInstance) {
+        return browserInstance;
+    }
+
+    if (browserInitPromise) {
+        return browserInitPromise;
+    }
+
+    browserInitPromise = puppeteer.launch({
+        headless: true,
+        defaultViewport: { width: 1280, height: 800 },
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }).then(browser => {
+        browserInstance = browser;
+        browserInitPromise = null;
+        return browser;
+    }).catch(error => {
+        browserInitPromise = null;
+        throw error;
+    });
+
+    return browserInitPromise;
+}
+
+/**
+ * Clean up browser instance
+ */
+export async function cleanup(): Promise<void> {
+    if (browserInstance) {
+        await browserInstance.close();
+        browserInstance = null;
+    }
+}
 
 /**
  * Sleep for a specified number of milliseconds
@@ -68,16 +110,12 @@ async function fetchDebankUsernameInternal(address: string): Promise<string> {
         return "Invalid Address";
     }
 
-    let browser;
+    let page: Page | undefined;
     try {
-        logger.debug(`Launching browser for address: ${address}`, { meta: {} });
-        browser = await puppeteer.launch({
-            headless: true,
-            defaultViewport: { width: 1280, height: 800 },
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+        logger.debug(`Getting browser instance for address: ${address}`, { meta: {} });
+        const browser = await getBrowser();
 
-        const page = await browser.newPage();
+        page = await browser.newPage();
         logger.debug('Browser page created', { meta: {} });
 
         // Set a realistic user agent
@@ -141,9 +179,9 @@ async function fetchDebankUsernameInternal(address: string): Promise<string> {
         logger.error(`Error fetching DeBank username for ${address}: ${error.message}`, { meta: {} });
         return "No ID";
     } finally {
-        if (browser) {
-            logger.debug('Closing browser', { meta: {} });
-            await browser.close();
+        if (page) {
+            logger.debug('Closing page', { meta: {} });
+            await page.close();
         }
     }
 }

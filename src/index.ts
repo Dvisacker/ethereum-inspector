@@ -21,8 +21,21 @@ import {
 } from "./hypersync";
 import { NETWORKS } from "./constants";
 import { Transfer } from "./types";
+import { cleanup as cleanupDebank } from "./debank";
 
 const program = new Command();
+
+// Handle cleanup on process exit
+async function handleExit() {
+  console.log("\nCleaning up...");
+  await cleanupDebank();
+  process.exit();
+}
+
+// Register cleanup handlers
+process.on('SIGINT', handleExit);
+process.on('SIGTERM', handleExit);
+process.on('SIGQUIT', handleExit);
 
 program
   .name("searchor")
