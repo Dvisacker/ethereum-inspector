@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { BridgeTransaction, LayerZeroMessage } from "./types";
 import { chainMapping } from "./providers/layerzero";
 
-const ERC20_ABI = [
+export const ERC20_ABI = [
   "event Transfer(address indexed from, address indexed to, uint256 value)",
   "event Approval(address indexed owner, address indexed spender, uint256 value)",
 ];
@@ -53,7 +53,7 @@ export async function parseStargateV2Transaction(
     const decoded = transferEvent.decoded;
 
     if (!decoded) return null;
-    const { value: amount } = decoded.args;
+    const { value: amount, from } = decoded.args;
     const tokenAddress = transferEvents[0]?.address;
 
     const fromSymbol = await getTokenSymbol(
@@ -73,8 +73,8 @@ export async function parseStargateV2Transaction(
       toAmount: amount.toString(), // Same amount on both chains
       fromSymbol,
       toSymbol: fromSymbol, // Same symbol on both chains
-      sender: message.pathway.sender.address,
-      recipient: message.pathway.receiver.address,
+      sender: from,
+      recipient: "",
       timestamp: sourceTx.blockTimestamp,
       status: message.status.name === "DELIVERED" ? "completed" : "pending",
       blockNumber: parseInt(sourceTx.blockNumber),

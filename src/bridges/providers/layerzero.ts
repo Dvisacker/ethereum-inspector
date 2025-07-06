@@ -10,14 +10,14 @@ import { parseStargateTransaction } from "../stargate-v1";
 import { parseStargateV2Transaction } from "../stargate-v2";
 
 export const chainMapping: { [key: number]: number } = {
-  // 101: 1, // Ethereum
-  // 102: 56, // BSC
-  // 106: 43114, // Avalanche
-  // 109: 137, // Polygon
-  // 110: 42161, // Arbitrum
-  // 111: 10, // Optimism
-  // 112: 250, // Fantom
-  // 183: 8453, // Base
+  101: 1, // Ethereum
+  102: 56, // BSC
+  106: 43114, // Avalanche
+  109: 137, // Polygon
+  110: 42161, // Arbitrum
+  111: 10, // Optimism
+  112: 250, // Fantom
+  184: 8453, // Base
   // LayerZero v2 (new endpoint IDs)
   30101: 1, // Ethereum Mainnet
   30102: 56, // BNB Chain
@@ -27,6 +27,8 @@ export const chainMapping: { [key: number]: number } = {
   30111: 10, // Optimism
   30112: 250, // Fantom
   30184: 8453, // Base
+  30320: 130, // Unichain
+  30362: 80094, // Berachain
   // Add more mappings as needed
 };
 
@@ -92,6 +94,7 @@ export class LayerZeroProvider implements BridgeProvider {
     message: LayerZeroMessage
   ): Promise<BridgeTransaction | null> {
     try {
+      console.log(message);
       // Check if this is a Stargate V2 transaction (chain IDs >= 30000)
       if (message.pathway.srcEid >= 30000 && message.pathway.dstEid >= 30000) {
         const stargateV2Tx = await parseStargateV2Transaction(
@@ -99,6 +102,14 @@ export class LayerZeroProvider implements BridgeProvider {
           this.provider
         );
         if (stargateV2Tx) return stargateV2Tx;
+      }
+
+      if (message.pathway.srcEid <= 300 && message.pathway.dstEid <= 300) {
+        const stargateV1Tx = await parseStargateTransaction(
+          message,
+          this.provider
+        );
+        if (stargateV1Tx) return stargateV1Tx;
       }
 
       // // Try Stargate V1 if not V2
