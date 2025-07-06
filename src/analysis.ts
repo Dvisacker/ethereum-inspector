@@ -40,6 +40,7 @@ export interface RelatedWalletInfo {
   txCount: number;
   entity: string;
   label: string;
+  notes?: string;
 }
 
 export interface RelatedWalletWithFundingInfo extends RelatedWalletInfo {
@@ -343,6 +344,97 @@ export class TransactionAnalyzer {
     }));
 
     return walletsWithFunding;
+  }
+
+  async analyzeCEXDepositLinks(
+    wallets: RelatedWalletInfo[]
+  ): Promise<RelatedWalletInfo[]> {
+    // Find CEX deposit addresses among related wallets
+    const cexDepositAddresses = wallets.filter(
+      (wallet) => wallet.label.includes("Deposit")
+    );
+
+    if (cexDepositAddresses.length === 0) {
+      return [];
+    }
+
+    // Collect all unique senders and track which CEX they deposited to
+    const senderToCEXMap = new Map<string, string[]>();
+
+    for (const cexDeposit of cexDepositAddresses) {
+      const hyperSyncData = await this.hyperSync.getTransactionsTo([
+        cexDeposit.address,
+      ]);
+
+      // Process ETH transfers
+      for (const tx of hyperSyncData.transactions) {
+        if (tx.from && tx.from !== cexDeposit.address && tx.value && Number(tx.value) > 0) {
+          if (!senderToCEXMap.has(tx.from)) {
+            senderToCEXMap.set(tx.from, []);
+          }
+          senderToCEXMap.get(tx.from)!.push(cexDeposit.address);
+        }
+      }
+
+      // Process ERC20 transfers
+      for (const log of hyperSyncData.logs) {
+        if (!log.topics || log.topics.length < 3) continue;
+
+        const fromTopic = log.topics[1];
+        if (!fromTopic) continue;
+
+        const from = "0x" + fromTopic.slice(26);
+        if (from !== cexDeposit.address) {
+          if (!senderToCEXMap.has(from)) {
+            senderToCEXMap.set(from, []);
+          }
+          senderToCEXMap.get(from)!.push(cexDeposit.address);
+        }
+      }
+    }
+
+    // Remove senders that are already in the related wallets list
+    const existingAddresses = new Set(wallets.map(w => w.address));
+    const newSenders = Array.from(senderToCEXMap.keys()).filter(sender => !existingAddresses.has(sender));
+
+    if (newSenders.length === 0) {
+      return [];
+    }
+
+    // Fetch entity and label information for new senders
+    const senderInfos = await Promise.all(
+      newSenders.map(async (sender) => {
+        const addressInfo = await safePromise(this.arkham.fetchAddress(sender));
+        return {
+          address: sender,
+          entity: addressInfo?.arkhamEntity?.name || "Unknown",
+          label: addressInfo?.arkhamLabel?.name || "Unknown",
+        };
+      })
+    );
+
+    // Create RelatedWalletInfo objects for the new senders with notes
+    const newWallets: RelatedWalletInfo[] = senderInfos.map(info => {
+      const cexAddresses = senderToCEXMap.get(info.address) || [];
+      const uniqueCEXAddresses = [...new Set(cexAddresses)];
+      
+      // Create notes for each CEX deposit this wallet sent to
+      const notes = uniqueCEXAddresses.map(cexAddr => {
+        const cexWallet = cexDepositAddresses.find(w => w.address === cexAddr);
+        const shortAddr = cexAddr.slice(0, 6) + ".." + cexAddr.slice(-4);
+        return `Link with ${shortAddr} (${cexWallet?.label || "CEX Deposit"})`;
+      }).join(", ");
+
+      return {
+        address: info.address,
+        txCount: 1, // Default to 1 since they made at least one deposit
+        entity: info.entity,
+        label: info.label,
+        notes: notes,
+      };
+    });
+
+    return newWallets;
   }
 
   /**

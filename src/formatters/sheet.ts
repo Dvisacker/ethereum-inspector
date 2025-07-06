@@ -28,7 +28,7 @@ export interface ContractInfo {
 }
 
 const TIMING_ANALYSIS_COL_WIDTHS = [30, 24, 20];
-const RELATED_WALLETS_COL_WIDTHS = [24, 12, 32, 32, 12, 12];
+const RELATED_WALLETS_COL_WIDTHS = [24, 12, 32, 32, 40, 12, 12];
 const CONTRACTS_COL_WIDTHS = [24, 12, 22, 44, 44, 12, 18, 32];
 const TRANSFERS_COL_WIDTHS = [24, 24, 24, 14, 30, 14, 44, 14, 24];
 const BRIDGE_TRANSACTIONS_COL_WIDTHS = [
@@ -150,15 +150,15 @@ export class XLSXExporter {
       }
     });
 
-    console.log("Top 20 most frequent addresses:");
-    sortedAddresses.forEach(([address, count], index) => {
-      const color = ADDRESS_COLORS[index]?.rgb || "default";
-      console.log(
-        `${index + 1}. ${shortAddr(
-          address
-        )}: ${count} occurrences (color: #${color})`
-      );
-    });
+    // console.log("Top 20 most frequent addresses:");
+    // sortedAddresses.forEach(([address, count], index) => {
+    //   const color = ADDRESS_COLORS[index]?.rgb || "default";
+    //   // console.log(
+    //   //   `${index + 1}. ${shortAddr(
+    //   //     address
+    //   //   )}: ${count} occurrences (color: #${color})`
+    //   // );
+    // });
   }
 
   // Helper method to get address color
@@ -368,6 +368,7 @@ export class XLSXExporter {
       { v: "Transaction Count", s: headerStyle },
       { v: "Entity", s: headerStyle },
       { v: "Label", s: headerStyle },
+      { v: "Notes", s: headerStyle },
       { v: "Debank", s: headerStyle },
       { v: "Arkham", s: headerStyle },
     ]);
@@ -393,6 +394,10 @@ export class XLSXExporter {
         },
         {
           v: wallet.label,
+          s: cellBorder,
+        },
+        {
+          v: wallet.notes || "",
           s: cellBorder,
         },
         {

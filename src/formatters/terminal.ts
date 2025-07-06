@@ -167,7 +167,7 @@ export class TerminalFormatter {
   static printRelatedWallets(wallets: RelatedWalletInfo[]) {
     console.log(chalk.green("\nRelated Wallets:"));
     const walletsTable = new Table({
-      head: ["Address", "Tx Count", "Entity", "Label"],
+      head: ["Address", "Tx Count", "Entity", "Label", "Notes"],
       style: { head: ["green"] },
     });
     wallets.forEach((wallet) => {
@@ -176,6 +176,7 @@ export class TerminalFormatter {
         wallet.txCount,
         wallet.entity,
         wallet.label,
+        wallet.notes || "",
       ]);
     });
     console.log(walletsTable.toString());
@@ -189,6 +190,7 @@ export class TerminalFormatter {
         "Tx Count",
         "Entity",
         "Label",
+        "Notes",
         "Funding Wallet",
         "Funding Wallet Entity",
       ],
@@ -200,8 +202,10 @@ export class TerminalFormatter {
         wallet.txCount,
         wallet.entity,
         wallet.label,
+        wallet.notes || "",
       ]);
     });
+    console.log(walletsTable.toString());
   }
 
   static printInteractedContracts(contracts: ContractInfo[]) {
