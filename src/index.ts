@@ -93,6 +93,21 @@ program
 
         const csvExporter = new XLSXExporter(address);
 
+        // Add providers menu
+        const providerAnswers = await inquirer.prompt({
+          type: "checkbox",
+          name: "providers",
+          message: chalk.green("Select data providers to use"),
+          default: ["arkham", "debank"],
+          choices: [
+            { name: chalk.green("Arkham Intelligence"), value: "arkham", disabled: true, checked: true },
+            { name: chalk.green("DeBank"), value: "debank" },
+          ],
+        });
+
+        // Update config based on provider selection
+        config.set("enableDebank", providerAnswers.providers.includes("debank"));
+
         const answers2 = await inquirer.prompt({
           type: "checkbox",
           name: "action",

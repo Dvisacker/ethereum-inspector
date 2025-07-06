@@ -11,6 +11,7 @@ export interface Address {
   address: string;
   arkhamEntity?: Entity;
   arkhamLabel?: Label;
+  debankUsername?: string;
 }
 
 export interface Entity {

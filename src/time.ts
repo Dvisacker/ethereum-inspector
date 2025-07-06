@@ -146,4 +146,13 @@ function compareTimeOfDayDistributions(
   return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
 }
 
-export { findBusiestPeriod, find6HourTimeframes, inferTimezoneRegion };
+/**
+ * Sleep for a specified number of milliseconds
+ * @param ms Number of milliseconds to sleep
+ * @returns Promise that resolves after the specified time
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export { findBusiestPeriod, find6HourTimeframes, inferTimezoneRegion, sleep };

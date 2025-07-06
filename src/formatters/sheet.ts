@@ -243,9 +243,8 @@ export class XLSXExporter {
     rows.push([
       { v: "Work Window", s: headerStyle },
       {
-        v: `${analysis.busiest6Hour.startHour}:00 - ${
-          (analysis.busiest6Hour.startHour + 6) % 24
-        }:00 UTC`,
+        v: `${analysis.busiest6Hour.startHour}:00 - ${(analysis.busiest6Hour.startHour + 6) % 24
+          }:00 UTC`,
         s: { ...cellBorder, alignment: { horizontal: "right" } },
       },
       {
@@ -258,9 +257,8 @@ export class XLSXExporter {
     rows.push([
       { v: "Sleep Window", s: headerStyle },
       {
-        v: `${analysis.leastBusy6Hour.startHour}:00 - ${
-          (analysis.leastBusy6Hour.startHour + 6) % 24
-        }:00 UTC`,
+        v: `${analysis.leastBusy6Hour.startHour}:00 - ${(analysis.leastBusy6Hour.startHour + 6) % 24
+          }:00 UTC`,
         s: { ...cellBorder, alignment: { horizontal: "right" } },
       },
       {
@@ -368,6 +366,7 @@ export class XLSXExporter {
       { v: "Transaction Count", s: headerStyle },
       { v: "Entity", s: headerStyle },
       { v: "Label", s: headerStyle },
+      { v: "Debank ID", s: headerStyle },
       { v: "Debank", s: headerStyle },
       { v: "Arkham", s: headerStyle },
     ]);
@@ -393,6 +392,10 @@ export class XLSXExporter {
         },
         {
           v: wallet.label,
+          s: cellBorder,
+        },
+        {
+          v: wallet.debankUsername || "No ID",
           s: cellBorder,
         },
         {

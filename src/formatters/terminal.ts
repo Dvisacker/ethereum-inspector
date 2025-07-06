@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import Table from "cli-table3";
-import { TransactionTimingAnalysis, RelatedWalletInfo } from "../analysis";
+import { TransactionTimingAnalysis, RelatedWalletInfo, RelatedWalletWithFundingInfo } from "../analysis";
 import { ContractInfo } from "./sheet";
 
 export class TerminalFormatter {
@@ -49,28 +49,24 @@ export class TerminalFormatter {
     const summary = `
   Total Transactions: ${timingAnalysis.totalTransactions}
   Average Transactions per day: ${timingAnalysis.averageTransactionsPerDay.toFixed(
-    2
-  )}
+      2
+    )}
   Busiest Periods:
-  - Hour: ${timingAnalysis.busiestHour.hour}:00 UTC (${
-      timingAnalysis.busiestHour.count
-    } transactions)
-  - Day: ${days[timingAnalysis.busiestDay.day]} (${
-      timingAnalysis.busiestDay.count
-    } transactions)
-  - Month: ${months[timingAnalysis.busiestMonth.month]} (${
-      timingAnalysis.busiestMonth.count
-    } transactions)
-  - Year: ${timingAnalysis.busiestYear.year} (${
-      timingAnalysis.busiestYear.count
-    } transactions)
+  - Hour: ${timingAnalysis.busiestHour.hour}:00 UTC (${timingAnalysis.busiestHour.count
+      } transactions)
+  - Day: ${days[timingAnalysis.busiestDay.day]} (${timingAnalysis.busiestDay.count
+      } transactions)
+  - Month: ${months[timingAnalysis.busiestMonth.month]} (${timingAnalysis.busiestMonth.count
+      } transactions)
+  - Year: ${timingAnalysis.busiestYear.year} (${timingAnalysis.busiestYear.count
+      } transactions)
   Timezone Analysis:
   - "Work" Window (Most active): ${format6HourWindow(
-    timingAnalysis.busiest6Hour.startHour
-  )} (${timingAnalysis.busiest6Hour.count} transactions)
+        timingAnalysis.busiest6Hour.startHour
+      )} (${timingAnalysis.busiest6Hour.count} transactions)
   - "Sleep" Window (Least active): ${format6HourWindow(
-    timingAnalysis.leastBusy6Hour.startHour
-  )} (${timingAnalysis.leastBusy6Hour.count} transactions)
+        timingAnalysis.leastBusy6Hour.startHour
+      )} (${timingAnalysis.leastBusy6Hour.count} transactions)
   ${timezoneInfo}`;
 
     const hourlyDistribution = Object.entries(timingAnalysis.hourlyDistribution)
@@ -167,7 +163,7 @@ export class TerminalFormatter {
   static printRelatedWallets(wallets: RelatedWalletInfo[]) {
     console.log(chalk.green("\nRelated Wallets:"));
     const walletsTable = new Table({
-      head: ["Address", "Tx Count", "Entity", "Label"],
+      head: ["Address", "Tx Count", "Entity", "Label", "Debank ID"],
       style: { head: ["green"] },
     });
     wallets.forEach((wallet) => {
@@ -176,12 +172,13 @@ export class TerminalFormatter {
         wallet.txCount,
         wallet.entity,
         wallet.label,
+        wallet.debankUsername || "No ID",
       ]);
     });
     console.log(walletsTable.toString());
   }
 
-  static printRelatedWalletsWithFunding(wallets: RelatedWalletInfo[]) {
+  static printRelatedWalletsWithFunding(wallets: RelatedWalletWithFundingInfo[]) {
     console.log(chalk.green("\nRelated Wallets with Funding:"));
     const walletsTable = new Table({
       head: [
@@ -189,6 +186,7 @@ export class TerminalFormatter {
         "Tx Count",
         "Entity",
         "Label",
+        "Debank ID",
         "Funding Wallet",
         "Funding Wallet Entity",
       ],
@@ -200,8 +198,12 @@ export class TerminalFormatter {
         wallet.txCount,
         wallet.entity,
         wallet.label,
+        wallet.debankUsername || "No ID",
+        wallet.fundingWallet || "Unknown",
+        wallet.fundingWalletEntity || "Unknown",
       ]);
     });
+    console.log(walletsTable.toString());
   }
 
   static printInteractedContracts(contracts: ContractInfo[]) {
