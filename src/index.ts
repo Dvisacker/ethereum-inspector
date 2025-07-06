@@ -102,6 +102,7 @@ program
             { name: chalk.green("Timing Analysis"), value: "timing" },
             { name: chalk.green("Related Wallets"), value: "related" },
             { name: chalk.green("Related Wallet Funders"), value: "funding" },
+            { name: chalk.green("CEX Deposit Links"), value: "cexlinks" },
             { name: chalk.green("Interacted Contracts"), value: "contracts" },
             { name: chalk.green("Transfers (only CSV)"), value: "transfers" },
             {
@@ -131,7 +132,8 @@ program
 
         if (
           answers2.action.includes("related") ||
-          answers2.action.includes("contracts")
+          answers2.action.includes("contracts") ||
+          answers2.action.includes("cexlinks")
         ) {
           const relatedSpinner = ora(
             chalk.green(
@@ -150,30 +152,24 @@ program
             )
           );
 
-          if (answers2.action.includes("related")) {
-            // Case of related wallets + funding wallets of related wallets
-            if (answers2.action.includes("funding")) {
-              console.log("\n");
-              const fundingWalletsSpinner = ora(
-                chalk.green("Analyzing related wallets funder wallets...")
-              ).start();
-              const walletsWithFunding = await analyzer.getFundingWallets(
-                wallets
-              );
-
-              fundingWalletsSpinner.succeed(
-                chalk.green("Related wallets funder wallets analysis complete!")
-              );
-
-              TerminalFormatter.printRelatedWalletsWithFunding(
-                walletsWithFunding
-              );
-
-              // Case of related wallets only
-            } else {
-              TerminalFormatter.printRelatedWallets(wallets);
-            }
+          if (answers2.action.includes("cexlinks")) {
+            console.log("\n");
+            const cexLinksSpinner = ora(
+              chalk.green("Analyzing CEX deposit links...")
+            ).start();
+            const cexLinkedWallets = await analyzer.analyzeCEXDepositLinks(
+              wallets
+            );
+  
+            cexLinksSpinner.succeed(
+              chalk.green("CEX deposit links analysis complete!")
+            );
+  
+            // Merge CEX linked wallets with existing related wallets
+            wallets = [...wallets, ...cexLinkedWallets];
           }
+
+            TerminalFormatter.printRelatedWallets(wallets);
 
           if (answers2.action.includes("contracts")) {
             TerminalFormatter.printInteractedContracts(contracts);

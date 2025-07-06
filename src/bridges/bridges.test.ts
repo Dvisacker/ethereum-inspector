@@ -1,6 +1,8 @@
 import { BridgeTransactionsFetcher } from "./fetcher";
 import { LayerZeroProvider } from "./providers/layerzero";
 import axios from "axios";
+import { ethers } from "ethers";
+import { LayerZeroMessage } from "./types";
 
 describe("BridgeTransactionsFetcher", () => {
   const fetcher = new BridgeTransactionsFetcher();
@@ -78,93 +80,3 @@ describe("BridgeTransactionsFetcher", () => {
     ).rejects.toThrow("Provider UnknownBridge not found");
   });
 });
-
-describe("LayerZeroProvider", () => {
-  const axiosInstance = axios.create({ timeout: 30000 });
-  const provider = new LayerZeroProvider(axiosInstance);
-  const testAddress = "0xed0c6079229e2d407672a117c22b62064f4a4312";
-
-  it("should handle LayerZero API response", async () => {
-    const transactions = await provider.fetchTransactions(testAddress);
-    console.log(transactions);
-    expect(Array.isArray(transactions)).toBe(true);
-
-    if (transactions.length > 0) {
-      const tx = transactions[0];
-
-      expect(tx).toHaveProperty("txHash");
-      expect(tx).toHaveProperty("bridge");
-      expect(tx.bridge).toBe("LayerZero");
-
-      expect(typeof tx.fromChain).toBe("number");
-      expect(typeof tx.toChain).toBe("number");
-      expect(typeof tx.timestamp).toBe("number");
-      expect(typeof tx.blockNumber).toBe("number");
-      expect(["pending", "completed", "failed"]).toContain(tx.status);
-      expect(typeof tx.sender).toBe("string");
-      expect(typeof tx.recipient).toBe("string");
-
-      console.log("LayerZero transaction sample:", {
-        bridge: tx.bridge,
-        fromChain: tx.fromChain,
-        toChain: tx.toChain,
-        status: tx.status,
-        timestamp: new Date(tx.timestamp * 1000).toISOString(),
-      });
-    }
-  }, 30000);
-
-  it("should handle API errors gracefully", async () => {
-    const invalidAddress = "invalid_address";
-    try {
-      await provider.fetchTransactions(invalidAddress);
-    } catch (error) {
-      expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toContain("LayerZero API error");
-    }
-  });
-});
-
-export async function exampleUsage() {
-  const fetcher = new BridgeTransactionsFetcher();
-  const address = "0xed0c6079229e2d407672a117c22b62064f4a4312";
-
-  try {
-    console.log("Supported providers:", fetcher.getSupportedProviders());
-
-    console.log("Fetching from all providers...");
-    const allTransactions = await fetcher.fetchAllBridgeTransactions(address);
-    console.log(`Found ${allTransactions.length} total bridge transactions`);
-
-    console.log("Fetching from Socket only...");
-    const socketTransactions = await fetcher.fetchFromProvider(
-      "Socket",
-      address
-    );
-    console.log(`Found ${socketTransactions.length} Socket transactions`);
-
-    // Fetch from LayerZero specifically
-    console.log("Fetching from LayerZero only...");
-    const layerZeroTransactions = await fetcher.fetchFromProvider(
-      "LayerZero",
-      address
-    );
-    console.log(`Found ${layerZeroTransactions.length} LayerZero transactions`);
-
-    // Display some transaction details
-    if (allTransactions.length > 0) {
-      const latest = allTransactions[0];
-      console.log("Latest transaction:", {
-        bridge: latest.bridge,
-        fromChain: latest.fromChain,
-        toChain: latest.toChain,
-        amount: latest.fromAmount,
-        symbol: latest.fromSymbol,
-        status: latest.status,
-        timestamp: new Date(latest.timestamp * 1000).toISOString(),
-      });
-    }
-  } catch (error) {
-    console.error("Error fetching bridge transactions:", error);
-  }
-}

@@ -1,0 +1,57 @@
+name: Version Bump
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Important: fetches all history to look at commits
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Configure Git
+      run: |
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'github-actions@github.com'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Bump version
+      id: bump
+      uses: phips28/gh-action-bump-version@master
+      with:
+        commitMessage: 'chore: bump version to {{version}}'
+        tag: 'v{{version}}'
+        push: true
+        major-wording: 'release'
+        minor-wording: 'feat'
+        patch-wording: 'fix'
+        release-branches: '["dev"]'
+
+    - name: Get changelog
+      id: changelog
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { execSync } = require('child_process');
+          const tag = process.env.GITHUB_REF.replace('refs/tags/', '');
+          const previousTag = execSync('git describe --tags --abbrev=0 HEAD^').toString().trim();
+          const changelog = execSync(`git log ${previousTag}..HEAD --pretty=format:"* %s (%h)"`).toString();
+          return changelog; 

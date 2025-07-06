@@ -5,17 +5,21 @@ on:
     - cron: '0 0 * * 0'  # Weekly on Sunday
   workflow_dispatch:  # Manual trigger
 
+# Add workflow-level permissions
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 jobs:
   update:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
+    # Remove redundant permissions since they're at workflow level
 
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: main
+        ref: dev
         fetch-depth: 0
 
     - name: Setup Node.js
@@ -76,7 +80,7 @@ jobs:
           
           This PR was automatically created by the dependency update workflow.
         branch: dependency-updates
-        base: main
+        base: dev
         labels: |
           dependencies
           automated pr
