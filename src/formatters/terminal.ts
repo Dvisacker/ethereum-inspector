@@ -2,6 +2,7 @@ import chalk from "chalk";
 import Table from "cli-table3";
 import { TransactionTimingAnalysis, RelatedWalletInfo, RelatedWalletWithFundingInfo } from "../analysis";
 import { ContractInfo } from "./sheet";
+import { config } from "../config";
 
 export class TerminalFormatter {
   static printTimingAnalysis(timingAnalysis: TransactionTimingAnalysis) {
@@ -162,46 +163,61 @@ export class TerminalFormatter {
 
   static printRelatedWallets(wallets: RelatedWalletInfo[]) {
     console.log(chalk.green("\nRelated Wallets:"));
+    const headers = ["Address", "Tx Count", "Entity", "Label"];
+    if (config.get("enableDebank")) {
+      headers.push("Debank ID");
+    }
     const walletsTable = new Table({
-      head: ["Address", "Tx Count", "Entity", "Label", "Debank ID"],
+      head: headers,
       style: { head: ["green"] },
     });
     wallets.forEach((wallet) => {
-      walletsTable.push([
+      const row = [
         wallet.address,
         wallet.txCount,
         wallet.entity,
         wallet.label,
-        wallet.debankUsername || "No ID",
-      ]);
+      ];
+      if (config.get("enableDebank")) {
+        row.push(wallet.debankUsername || "No ID");
+      }
+      walletsTable.push(row);
     });
     console.log(walletsTable.toString());
   }
 
   static printRelatedWalletsWithFunding(wallets: RelatedWalletWithFundingInfo[]) {
     console.log(chalk.green("\nRelated Wallets with Funding:"));
+    const headers = [
+      "Address",
+      "Tx Count",
+      "Entity",
+      "Label",
+    ];
+    if (config.get("enableDebank")) {
+      headers.push("Debank ID");
+    }
+    headers.push("Funding Wallet", "Funding Wallet Entity");
+
     const walletsTable = new Table({
-      head: [
-        "Address",
-        "Tx Count",
-        "Entity",
-        "Label",
-        "Debank ID",
-        "Funding Wallet",
-        "Funding Wallet Entity",
-      ],
+      head: headers,
       style: { head: ["green"] },
     });
     wallets.forEach((wallet) => {
-      walletsTable.push([
+      const row = [
         wallet.address,
         wallet.txCount,
         wallet.entity,
         wallet.label,
-        wallet.debankUsername || "No ID",
+      ];
+      if (config.get("enableDebank")) {
+        row.push(wallet.debankUsername || "No ID");
+      }
+      row.push(
         wallet.fundingWallet || "Unknown",
-        wallet.fundingWalletEntity || "Unknown",
-      ]);
+        wallet.fundingWalletEntity || "Unknown"
+      );
+      walletsTable.push(row);
     });
     console.log(walletsTable.toString());
   }

@@ -15,6 +15,7 @@ import {
   getArkhamLink,
 } from "../helpers";
 import { BridgeTransaction } from "../bridges/types";
+import { config } from "../config";
 
 export interface ContractInfo {
   address: string;
@@ -361,22 +362,30 @@ export class XLSXExporter {
 
   formatRelatedWallets(wallets: RelatedWalletInfo[]) {
     const rows: any[][] = [];
-    rows.push([
+    const headers = [
       { v: "Address", s: headerStyle },
       { v: "Transaction Count", s: headerStyle },
       { v: "Entity", s: headerStyle },
       { v: "Label", s: headerStyle },
-      { v: "Debank ID", s: headerStyle },
-      { v: "Debank", s: headerStyle },
-      { v: "Arkham", s: headerStyle },
-    ]);
+    ];
+
+    if (config.get("enableDebank")) {
+      headers.push(
+        { v: "Debank ID", s: headerStyle },
+        { v: "Debank", s: headerStyle }
+      );
+    }
+    headers.push({ v: "Arkham", s: headerStyle });
+
+    rows.push(headers);
+
     wallets.forEach((wallet) => {
       const addressFill = this.getAddressColor(wallet.address);
       const addressStyle = addressFill
         ? { ...cellBorder, fill: addressFill }
         : cellBorder;
 
-      rows.push([
+      const row = [
         {
           v: shortAddr(wallet.address),
           l: { Target: getEtherscanAddressLink(wallet.address) },
@@ -394,21 +403,29 @@ export class XLSXExporter {
           v: wallet.label,
           s: cellBorder,
         },
-        {
-          v: wallet.debankUsername || "No ID",
-          s: cellBorder,
-        },
-        {
-          v: "DEB",
-          l: { Target: getDebankLink(wallet.address) },
-          s: cellBorder,
-        },
-        {
-          v: "ARK",
-          l: { Target: getArkhamLink(wallet.address) },
-          s: cellBorder,
-        },
-      ]);
+      ];
+
+      if (config.get("enableDebank")) {
+        row.push(
+          {
+            v: wallet.debankUsername || "No ID",
+            s: cellBorder,
+          },
+          {
+            v: "DEB",
+            l: { Target: getDebankLink(wallet.address) },
+            s: cellBorder,
+          }
+        );
+      }
+
+      row.push({
+        v: "ARK",
+        l: { Target: getArkhamLink(wallet.address) },
+        s: cellBorder,
+      });
+
+      rows.push(row);
     });
     return rows;
   }
