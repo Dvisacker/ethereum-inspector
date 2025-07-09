@@ -14,6 +14,7 @@ import { ETHER } from "./constants";
 import { CCTPProvider } from "./bridges/providers/cctp";
 import { BridgeTransaction as BridgeTransactionType } from "./bridges/types";
 import { BridgeTransactionsFetcher } from "./bridges";
+import { getDebankUsername } from "./debank";
 
 export interface TransactionTimingAnalysis {
   hourlyDistribution: { [hour: number]: number };
@@ -40,6 +41,7 @@ export interface RelatedWalletInfo {
   txCount: number;
   entity: string;
   label: string;
+  debankUsername?: string;
 }
 
 export interface RelatedWalletWithFundingInfo extends RelatedWalletInfo {
@@ -54,7 +56,7 @@ export interface RelatedWalletTx {
   timestamp: number;
 }
 
-export interface BridgeTransaction extends BridgeTransactionType {}
+export interface BridgeTransaction extends BridgeTransactionType { }
 
 export class TransactionAnalyzer {
   private hyperSync: HyperSync;
@@ -223,7 +225,7 @@ export class TransactionAnalyzer {
     );
 
     // Fetch all contract info in parallel with error handling
-    const [walletLabels, contractLabels, contractNames] = await Promise.all([
+    const [walletLabels, contractLabels, contractNames, debankUsernames] = await Promise.all([
       Promise.all(
         wallets.map((wallet) =>
           safePromise(this.arkham.fetchAddress(wallet.address))
@@ -239,6 +241,13 @@ export class TransactionAnalyzer {
           safePromise(this.etherscan.getContractName(contract.address, 1))
         )
       ),
+      config.get("enableDebank")
+        ? Promise.all(
+          wallets.map((wallet) =>
+            safePromise(getDebankUsername(wallet.address))
+          )
+        )
+        : Promise.resolve(wallets.map(() => null)),
     ]);
 
     const walletInfos = wallets.map((wallet, index) => {
@@ -259,6 +268,7 @@ export class TransactionAnalyzer {
         txCount: wallet.txCount,
         entity,
         label,
+        debankUsername: debankUsernames[index] || undefined,
       };
     });
 
@@ -337,9 +347,8 @@ export class TransactionAnalyzer {
       ...wallet,
       address: wallet.address,
       fundingWallet: fundingWallets.get(wallets[index].address)?.address,
-      fundingWalletEntity: `${
-        fundingWallets.get(wallets[index].address)?.entity
-      } (${fundingWallets.get(wallets[index].address)?.label})`,
+      fundingWalletEntity: `${fundingWallets.get(wallets[index].address)?.entity
+        } (${fundingWallets.get(wallets[index].address)?.label})`,
     }));
 
     return walletsWithFunding;

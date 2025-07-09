@@ -21,8 +21,21 @@ import {
 } from "./hypersync";
 import { NETWORKS } from "./constants";
 import { Transfer } from "./types";
+import { cleanup as cleanupDebank } from "./debank";
 
 const program = new Command();
+
+// Handle cleanup on process exit
+async function handleExit() {
+  console.log("\nCleaning up...");
+  await cleanupDebank();
+  process.exit();
+}
+
+// Register cleanup handlers
+process.on('SIGINT', handleExit);
+process.on('SIGTERM', handleExit);
+process.on('SIGQUIT', handleExit);
 
 program
   .name("searchor")
@@ -92,6 +105,21 @@ program
         }
 
         const csvExporter = new XLSXExporter(address);
+
+        // Add providers menu
+        const providerAnswers = await inquirer.prompt({
+          type: "checkbox",
+          name: "providers",
+          message: chalk.green("Select data providers to use"),
+          default: ["arkham", "debank"],
+          choices: [
+            { name: chalk.green("Arkham Intelligence"), value: "arkham", disabled: true, checked: true },
+            { name: chalk.green("DeBank"), value: "debank" },
+          ],
+        });
+
+        // Update config based on provider selection
+        config.set("enableDebank", providerAnswers.providers.includes("debank"));
 
         const answers2 = await inquirer.prompt({
           type: "checkbox",

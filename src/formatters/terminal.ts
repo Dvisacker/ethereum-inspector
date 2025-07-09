@@ -1,7 +1,8 @@
 import chalk from "chalk";
 import Table from "cli-table3";
-import { TransactionTimingAnalysis, RelatedWalletInfo } from "../analysis";
+import { TransactionTimingAnalysis, RelatedWalletInfo, RelatedWalletWithFundingInfo } from "../analysis";
 import { ContractInfo } from "./sheet";
+import { config } from "../config";
 
 export class TerminalFormatter {
   static printTimingAnalysis(timingAnalysis: TransactionTimingAnalysis) {
@@ -49,28 +50,24 @@ export class TerminalFormatter {
     const summary = `
   Total Transactions: ${timingAnalysis.totalTransactions}
   Average Transactions per day: ${timingAnalysis.averageTransactionsPerDay.toFixed(
-    2
-  )}
+      2
+    )}
   Busiest Periods:
-  - Hour: ${timingAnalysis.busiestHour.hour}:00 UTC (${
-      timingAnalysis.busiestHour.count
-    } transactions)
-  - Day: ${days[timingAnalysis.busiestDay.day]} (${
-      timingAnalysis.busiestDay.count
-    } transactions)
-  - Month: ${months[timingAnalysis.busiestMonth.month]} (${
-      timingAnalysis.busiestMonth.count
-    } transactions)
-  - Year: ${timingAnalysis.busiestYear.year} (${
-      timingAnalysis.busiestYear.count
-    } transactions)
+  - Hour: ${timingAnalysis.busiestHour.hour}:00 UTC (${timingAnalysis.busiestHour.count
+      } transactions)
+  - Day: ${days[timingAnalysis.busiestDay.day]} (${timingAnalysis.busiestDay.count
+      } transactions)
+  - Month: ${months[timingAnalysis.busiestMonth.month]} (${timingAnalysis.busiestMonth.count
+      } transactions)
+  - Year: ${timingAnalysis.busiestYear.year} (${timingAnalysis.busiestYear.count
+      } transactions)
   Timezone Analysis:
   - "Work" Window (Most active): ${format6HourWindow(
-    timingAnalysis.busiest6Hour.startHour
-  )} (${timingAnalysis.busiest6Hour.count} transactions)
+        timingAnalysis.busiest6Hour.startHour
+      )} (${timingAnalysis.busiest6Hour.count} transactions)
   - "Sleep" Window (Least active): ${format6HourWindow(
-    timingAnalysis.leastBusy6Hour.startHour
-  )} (${timingAnalysis.leastBusy6Hour.count} transactions)
+        timingAnalysis.leastBusy6Hour.startHour
+      )} (${timingAnalysis.leastBusy6Hour.count} transactions)
   ${timezoneInfo}`;
 
     const hourlyDistribution = Object.entries(timingAnalysis.hourlyDistribution)
@@ -166,42 +163,63 @@ export class TerminalFormatter {
 
   static printRelatedWallets(wallets: RelatedWalletInfo[]) {
     console.log(chalk.green("\nRelated Wallets:"));
+    const headers = ["Address", "Tx Count", "Entity", "Label"];
+    if (config.get("enableDebank")) {
+      headers.push("Debank ID");
+    }
     const walletsTable = new Table({
-      head: ["Address", "Tx Count", "Entity", "Label"],
+      head: headers,
       style: { head: ["green"] },
     });
     wallets.forEach((wallet) => {
-      walletsTable.push([
+      const row = [
         wallet.address,
         wallet.txCount,
         wallet.entity,
         wallet.label,
-      ]);
+      ];
+      if (config.get("enableDebank")) {
+        row.push(wallet.debankUsername || "No ID");
+      }
+      walletsTable.push(row);
     });
     console.log(walletsTable.toString());
   }
 
-  static printRelatedWalletsWithFunding(wallets: RelatedWalletInfo[]) {
+  static printRelatedWalletsWithFunding(wallets: RelatedWalletWithFundingInfo[]) {
     console.log(chalk.green("\nRelated Wallets with Funding:"));
+    const headers = [
+      "Address",
+      "Tx Count",
+      "Entity",
+      "Label",
+    ];
+    if (config.get("enableDebank")) {
+      headers.push("Debank ID");
+    }
+    headers.push("Funding Wallet", "Funding Wallet Entity");
+
     const walletsTable = new Table({
-      head: [
-        "Address",
-        "Tx Count",
-        "Entity",
-        "Label",
-        "Funding Wallet",
-        "Funding Wallet Entity",
-      ],
+      head: headers,
       style: { head: ["green"] },
     });
     wallets.forEach((wallet) => {
-      walletsTable.push([
+      const row = [
         wallet.address,
         wallet.txCount,
         wallet.entity,
         wallet.label,
-      ]);
+      ];
+      if (config.get("enableDebank")) {
+        row.push(wallet.debankUsername || "No ID");
+      }
+      row.push(
+        wallet.fundingWallet || "Unknown",
+        wallet.fundingWalletEntity || "Unknown"
+      );
+      walletsTable.push(row);
     });
+    console.log(walletsTable.toString());
   }
 
   static printInteractedContracts(contracts: ContractInfo[]) {

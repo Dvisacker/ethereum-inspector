@@ -13,6 +13,7 @@ export interface Config {
   arkhamCookie: string;
   alchemyApiKey: string;
   etherscanApiKey: string;
+  enableDebank: boolean;
 }
 
 export class ConfigManager {
@@ -27,6 +28,7 @@ export class ConfigManager {
       maxRelatedContracts: 10,
       relatedWalletsThreshold: 3,
       spamTxEthThreshold: 0.05,
+      enableDebank: true,
     };
 
     // 2. Load from config file

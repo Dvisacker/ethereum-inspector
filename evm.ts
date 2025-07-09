@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
-import { HyperSync } from "./hypersync";
+import { HyperSync } from "./src/hypersync";
+import { EtherscanClient } from "./src/etherscan";
 import dotenv from "dotenv";
 import { logger } from "./logger";
 
